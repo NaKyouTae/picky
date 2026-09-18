@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AdminAuthModule } from './admin/auth/admin-auth.module';
+import { AuthModule } from './auth/auth.module';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { SupabaseModule } from './common/supabase/supabase.module';
 import { HealthController } from './health/health.controller';
@@ -14,6 +15,7 @@ import { HealthController } from './health/health.controller';
     PrismaModule,
     SupabaseModule,
     AdminAuthModule,
+    AuthModule,
   ],
   controllers: [HealthController],
 })

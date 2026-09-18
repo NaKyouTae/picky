@@ -23,15 +23,63 @@ enum UserStatus {
   DELETED
 }
 
-model User {
-  id        String     @id @default(uuid()) @db.Uuid
-  email     String     @unique
-  nickname  String?
-  role      UserRole   @default(USER)
-  status    UserStatus @default(ACTIVE)
-  createdAt DateTime   @default(now()) @map("created_at")
-  updatedAt DateTime   @updatedAt @map("updated_at")
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
 
+/// SNS 로그인 제공자
+enum ProviderType {
+  KAKAO
+  NAVER
+  GOOGLE
+}
+
+model User {
+  id     String     @id @default(uuid()) @db.Uuid
+  /// 필수 — SNS 프로필에서 수집
+  email  String     @unique
+  name   String
+  /// 선택 — 제공자가 동의를 받지 못하면 비어 있음
+  gender Gender?
+  /// "20~29" 처럼 제공자마다 표기가 달라 문자열로 보관
+  ageRange String?  @map("age_range") @db.VarChar(20)
+  birthday DateTime? @db.Date
+
+  role   UserRole   @default(USER)
+  status UserStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  accounts Account[]
+
+  // 목록/통계 조회용
+  @@index([status, createdAt])
   @@index([createdAt])
   @@map("users")
+}
+
+/// SNS 계정 — 한 유저가 카카오/네이버/구글을 동시에 연결할 수 있음 (User 1 : N Account)
+model Account {
+  id String @id @default(uuid()) @db.Uuid
+
+  userId       String       @map("user_id") @db.Uuid
+  providerType ProviderType @map("provider_type")
+  /// 제공자가 발급한 고유 회원번호 (카카오 id, 네이버 id, 구글 sub)
+  providerId   String       @map("provider_id") @db.VarChar(255)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // 로그인 시 (제공자, 제공자 회원번호) 로 단건 조회 — 중복 연결 방지까지 겸함
+  @@unique([providerType, providerId])
+  // FK 는 Postgres 가 자동 인덱싱하지 않음. 유저의 연결 계정 조회/삭제 성능용
+  @@index([userId])
+  // 한 유저가 같은 제공자를 두 번 연결하지 못하도록
+  @@unique([userId, providerType])
+  @@map("accounts")
 }
