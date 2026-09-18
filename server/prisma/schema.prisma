@@ -1,0 +1,37 @@
+// Prisma 7 schema — Supabase PostgreSQL
+// 연결 URL 은 prisma.config.ts(마이그레이션) / PrismaService(런타임 어댑터)에서 관리합니다.
+// docs: https://www.prisma.io/docs
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+model User {
+  id        String     @id @default(uuid()) @db.Uuid
+  email     String     @unique
+  nickname  String?
+  role      UserRole   @default(USER)
+  status    UserStatus @default(ACTIVE)
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  @@index([createdAt])
+  @@map("users")
+}

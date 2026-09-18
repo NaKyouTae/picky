@@ -1,0 +1,58 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-brand-50: #fff1f2;
+  --color-brand-100: #ffe4e6;
+  --color-brand-500: #ff5a5f;
+  --color-brand-600: #ef4146;
+  --color-brand-700: #c9282d;
+
+  --color-ink: #191919;
+  --color-ink-sub: #6b7280;
+  --color-line: #ececec;
+
+  --font-sans:
+    'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, 'Apple SD Gothic Neo',
+    'Malgun Gothic', sans-serif;
+
+  /* 모바일 셸 최대 폭 */
+  --spacing-shell: 430px;
+}
+
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-white text-ink font-sans antialiased;
+    /* iOS WebView 100vh 버그 회피 */
+    min-height: 100dvh;
+    overscroll-behavior-y: none;
+  }
+
+  /* 모바일에서 input 포커스 시 확대 방지 */
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+
+  button {
+    touch-action: manipulation;
+  }
+}
+
+@utility safe-top {
+  padding-top: var(--safe-top);
+}
+
+@utility safe-bottom {
+  padding-bottom: var(--safe-bottom);
+}

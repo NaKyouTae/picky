@@ -1,0 +1,29 @@
+{
+  "name": "picky",
+  "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "dev:server": "turbo run dev --filter=@picky/server",
+    "dev:app": "turbo run dev --filter=@picky/app",
+    "dev:admin": "turbo run dev --filter=@picky/admin",
+    "build": "turbo run build",
+    "start": "turbo run start",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "format": "prettier --write \"**/*.{ts,tsx,js,mjs,json,md,css}\" --ignore-path .gitignore",
+    "db:generate": "pnpm --filter @picky/server db:generate",
+    "db:migrate": "pnpm --filter @picky/server db:migrate",
+    "db:push": "pnpm --filter @picky/server db:push",
+    "db:studio": "pnpm --filter @picky/server db:studio"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.8",
+    "turbo": "^2.10.13",
+    "typescript": "^5.9.3"
+  }
+}

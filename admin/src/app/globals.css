@@ -1,0 +1,19 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-brand-500: #ff5a5f;
+  --color-brand-600: #ef4146;
+  --color-ink: #191919;
+  --color-ink-sub: #6b7280;
+  --color-line: #e5e7eb;
+
+  --font-sans:
+    'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, 'Apple SD Gothic Neo',
+    'Malgun Gothic', sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-ink font-sans antialiased;
+  }
+}

@@ -1,0 +1,13 @@
+packages:
+  - "server"
+  - "app"
+  - "admin"
+  - "packages/*"
+
+onlyBuiltDependencies:
+  - "@prisma/client"
+  - "@prisma/engines"
+  - prisma
+  - unrs-resolver
+  - sharp
+  - esbuild
