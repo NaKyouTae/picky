@@ -5,7 +5,8 @@
 #    DATABASE_URL, DIRECT_URL, SUPABASE_URL, SUPABASE_ANON_KEY,
 #    SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET, ADMIN_TOKEN,
 #    ADMIN_USERNAME, ADMIN_PASSWORD
-name: picky-server
+# 콘솔에 이미 배포된 서비스 이름과 일치해야 한다 (다르면 새 서비스가 생기고 URL 도 새로 발급됨)
+name: picky
 app: dockerfile
 options:
   ports: "21000"
