@@ -1,28 +1,17 @@
-'use client';
-
-type KakaoLoginButtonProps = {
-  /** 미지정 시 연동 전 안내만 남깁니다. OAuth 연결 후 인가 URL 이동으로 교체하세요. */
-  onClick?: () => void;
-};
-
-export function KakaoLoginButton({ onClick }: KakaoLoginButtonProps) {
-  const handleClick =
-    onClick ??
-    (() => {
-      // TODO: 카카오 OAuth 연동 — 서버의 인가 URL 로 이동
-      // window.location.href = '/api/auth/kakao';
-      console.warn('[picky] 카카오 로그인은 아직 연동되지 않았습니다.');
-    });
-
+/**
+ * 카카오 로그인 버튼.
+ * OAuth 는 top-level 내비게이션이어야 하므로 fetch 가 아니라 링크로 이동한다.
+ * (`/auth/kakao/start` 가 state/nonce 쿠키를 심고 카카오 동의 화면으로 리디렉션)
+ */
+export function KakaoLoginButton() {
   return (
-    <button
-      type="button"
-      onClick={handleClick}
+    <a
+      href="/auth/kakao/start"
       className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-kakao text-base font-semibold text-kakao-label transition-colors active:bg-kakao-pressed"
     >
       <KakaoSymbol />
       카카오 로그인
-    </button>
+    </a>
   );
 }
 

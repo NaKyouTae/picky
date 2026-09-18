@@ -11,6 +11,7 @@ const LOGIN_ERRORS: Record<string, string> = {
   invalid_state: '로그인 요청이 만료되었습니다. 다시 시도해 주세요.',
   login_failed: '로그인에 실패했습니다. 다시 시도해 주세요.',
   google_unavailable: '구글 로그인을 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.',
+  kakao_unavailable: '카카오 로그인을 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.',
 };
 
 export default async function HomePage({
