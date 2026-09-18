@@ -2,7 +2,17 @@ import { ForbiddenException, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ProviderType, UserStatus } from '../generated/prisma/enums';
-import { GoogleOAuthService, type GoogleProfile } from './google-oauth.service';
+import { GoogleOAuthService } from './google-oauth.service';
+import { KakaoOAuthService } from './kakao-oauth.service';
+
+/** 제공자에 관계없이 로그인에 필요한 최소 프로필 */
+interface SnsProfile {
+  providerType: ProviderType;
+  /** 제공자가 발급한 고유 회원번호 */
+  providerId: string;
+  email: string;
+  name: string;
+}
 
 export interface UserJwtPayload {
   sub: string;
@@ -25,6 +35,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly google: GoogleOAuthService,
+    private readonly kakao: KakaoOAuthService,
   ) {}
 
   /** 로그인 시작 — 프론트는 url 로 이동시키고 나머지 값은 httpOnly 쿠키에 보관한다. */
@@ -32,9 +43,27 @@ export class AuthService {
     return this.google.createAuthorizeRequest();
   }
 
+  createKakaoAuthorizeRequest() {
+    return this.kakao.createAuthorizeRequest();
+  }
+
   /** 구글 콜백 — code 를 프로필로 교환하고 세션(JWT)을 발급한다. */
   async loginWithGoogle(code: string, nonce: string, codeVerifier: string): Promise<AuthSession> {
-    const profile = await this.google.exchangeCodeForProfile(code, nonce, codeVerifier);
+    const { sub, email, name } = await this.google.exchangeCodeForProfile(
+      code,
+      nonce,
+      codeVerifier,
+    );
+    return this.login({ providerType: ProviderType.GOOGLE, providerId: sub, email, name });
+  }
+
+  /** 카카오 콜백 — code 를 프로필로 교환하고 세션(JWT)을 발급한다. */
+  async loginWithKakao(code: string, nonce: string, codeVerifier: string): Promise<AuthSession> {
+    const { sub, email, name } = await this.kakao.exchangeCodeForProfile(code, nonce, codeVerifier);
+    return this.login({ providerType: ProviderType.KAKAO, providerId: sub, email, name });
+  }
+
+  private async login(profile: SnsProfile): Promise<AuthSession> {
     const user = await this.findOrCreateUser(profile);
 
     if (user.status !== UserStatus.ACTIVE) {
@@ -56,31 +85,25 @@ export class AuthService {
   }
 
   /**
-   * (GOOGLE, sub) 로 기존 연결을 먼저 찾고,
-   * 없으면 같은 이메일의 유저에 계정을 연결하거나(카카오로 먼저 가입한 경우) 새로 만든다.
+   * (제공자, 회원번호) 로 기존 연결을 먼저 찾고,
+   * 없으면 같은 이메일의 유저에 계정을 연결하거나(다른 제공자로 먼저 가입한 경우) 새로 만든다.
    */
-  private async findOrCreateUser(profile: GoogleProfile) {
+  private async findOrCreateUser({ providerType, providerId, email, name }: SnsProfile) {
     const linked = await this.prisma.account.findUnique({
-      where: {
-        providerType_providerId: { providerType: ProviderType.GOOGLE, providerId: profile.sub },
-      },
+      where: { providerType_providerId: { providerType, providerId } },
       select: { user: { select: USER_FIELDS } },
     });
     if (linked) return linked.user;
 
     // User.email 은 unique — 다른 제공자로 이미 가입한 이메일이면 그 유저에 연결한다.
     const existing = await this.prisma.user.findUnique({
-      where: { email: profile.email },
+      where: { email },
       select: { id: true },
     });
 
     if (existing) {
       const account = await this.prisma.account.create({
-        data: {
-          userId: existing.id,
-          providerType: ProviderType.GOOGLE,
-          providerId: profile.sub,
-        },
+        data: { userId: existing.id, providerType, providerId },
         select: { user: { select: USER_FIELDS } },
       });
       return account.user;
@@ -88,11 +111,9 @@ export class AuthService {
 
     return this.prisma.user.create({
       data: {
-        email: profile.email,
-        name: profile.name,
-        accounts: {
-          create: { providerType: ProviderType.GOOGLE, providerId: profile.sub },
-        },
+        email,
+        name,
+        accounts: { create: { providerType, providerId } },
       },
       select: USER_FIELDS,
     });
