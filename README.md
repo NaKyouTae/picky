@@ -99,6 +99,20 @@ Prisma 7 부터 연결 URL 은 `schema.prisma` 가 아닌 곳에서 관리합니
 
 마이그레이션은 배포 전 로컬 또는 CI 에서 `pnpm --filter @picky/server db:deploy` 로 적용합니다.
 
+#### 자동 배포 (GitHub Actions)
+
+클라우드타입은 GitHub 연동만으로는 재배포되지 않아 [.github/workflows/deploy-server.yml](.github/workflows/deploy-server.yml) 이
+`main` 푸시(서버 관련 경로 변경 시) 또는 Actions 탭의 수동 실행으로 배포를 트리거합니다.
+배포 설정은 `.cloudtype/app.yaml` 을 그대로 사용하고, 배포 후 `/api/health` 가 200 이 될 때까지 확인합니다.
+
+저장소 **Settings → Secrets and variables → Actions** 에 아래를 등록해야 동작합니다 (없으면 배포를 건너뜁니다).
+
+| 구분 | 이름 | 값 |
+| --- | --- | --- |
+| Secret | `CLOUDTYPE_TOKEN` | 클라우드타입 콘솔 → 설정 → API Key |
+| Variable | `CLOUDTYPE_PROJECT` | `스페이스/프로젝트` (예: `nakyoutae/picky`) |
+| Variable | `CLOUDTYPE_STAGE` | (선택) 기본값 `main` |
+
 로컬에서 이미지 확인:
 
 ```bash
