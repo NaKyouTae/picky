@@ -1,0 +1,43 @@
+# 클라우드타입 배포 설정
+# 콘솔에서 "내 GitHub 저장소 배포하기" → NaKyouTae/picky 선택 시 이 파일을 읽습니다.
+#
+# ⚠️ 배포 전, 클라우드타입 프로젝트의 [시크릿] 탭에 아래 secret 이름들을 먼저 등록하세요.
+#    DATABASE_URL, DIRECT_URL, SUPABASE_URL, SUPABASE_ANON_KEY,
+#    SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET, ADMIN_TOKEN
+name: picky-server
+app: dockerfile
+options:
+  ports: "21000"
+  # 저장소 루트를 build context 로 사용 (서브 디렉토리 설정 없이 배포)
+  dockerfile: Dockerfile
+  healthz: /api/health
+  env:
+    - name: NODE_ENV
+      value: production
+    - name: PORT
+      value: "21000"
+    # 배포된 프론트 도메인으로 수정하세요 (쉼표 구분)
+    - name: CORS_ORIGINS
+      value: "http://localhost:21001,http://localhost:21002"
+    - name: SUPABASE_STORAGE_BUCKET
+      value: picky
+    # Supabase transaction pooler (6543)
+    - name: DATABASE_URL
+      secret: DATABASE_URL
+    # Supabase direct connection (5432) — 마이그레이션용
+    - name: DIRECT_URL
+      secret: DIRECT_URL
+    - name: SUPABASE_URL
+      secret: SUPABASE_URL
+    - name: SUPABASE_ANON_KEY
+      secret: SUPABASE_ANON_KEY
+    - name: SUPABASE_SERVICE_ROLE_KEY
+      secret: SUPABASE_SERVICE_ROLE_KEY
+    - name: JWT_SECRET
+      secret: JWT_SECRET
+    - name: ADMIN_TOKEN
+      secret: ADMIN_TOKEN
+context:
+  git:
+    url: https://github.com/NaKyouTae/picky.git
+    branch: main

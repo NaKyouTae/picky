@@ -14,13 +14,14 @@
 picky/
 ├── turbo.json            # 태스크 파이프라인
 ├── pnpm-workspace.yaml
+├── Dockerfile            # server 이미지 (build context = 저장소 루트)
+├── .cloudtype/app.yaml   # 클라우드타입 배포 설정
 ├── server/               # @picky/server
 │   ├── prisma/schema.prisma
 │   ├── prisma.config.ts  # Prisma 7 설정 (migrate 용 DIRECT_URL)
 │   ├── src/common/prisma      # PrismaService (pg 드라이버 어댑터)
 │   ├── src/common/supabase    # SupabaseService (Storage)
-│   ├── src/health             # /api/health
-│   └── Dockerfile             # Cloudtype 배포용
+│   └── src/health             # /api/health
 ├── app/                  # @picky/app
 │   ├── src/app/api/[...path]  # BFF 프록시 → NestJS
 │   ├── src/lib/api.ts         # 서버 컴포넌트용 API 클라이언트
@@ -85,19 +86,25 @@ Prisma 7 부터 연결 URL 은 `schema.prisma` 가 아닌 곳에서 관리합니
 
 ## 배포
 
-### server → Cloudtype
+### server → 클라우드타입
 
-Dockerfile 기반 배포 (build context 는 **저장소 루트**):
+배포 설정은 [.cloudtype/app.yaml](.cloudtype/app.yaml) 에 있습니다 (`app: dockerfile`, 포트 `21000`, 헬스체크 `/api/health`).
+루트 [Dockerfile](Dockerfile) 이 모노레포 전체를 build context 로 사용해 `@picky/server` 만 빌드합니다.
 
-| 항목            | 값                  |
-| --------------- | ------------------- |
-| Dockerfile 경로 | `server/Dockerfile` |
-| 컨텍스트        | `/` (저장소 루트)   |
-| 포트            | `21000`             |
-| 헬스체크        | `/api/health`       |
+1. 클라우드타입 프로젝트 → **시크릿** 탭에 아래 값을 먼저 등록
+   `DATABASE_URL` · `DIRECT_URL` · `SUPABASE_URL` · `SUPABASE_ANON_KEY` · `SUPABASE_SERVICE_ROLE_KEY` · `JWT_SECRET` · `ADMIN_TOKEN`
+2. **내 GitHub 저장소 배포하기** → `NaKyouTae/picky` 선택 (서브 디렉토리는 비워 둠)
+3. `.cloudtype/app.yaml` 을 자동으로 읽어 설정이 채워집니다
+4. 프론트 도메인이 정해지면 `CORS_ORIGINS` 값을 해당 도메인으로 수정
 
-환경변수는 Cloudtype 콘솔에 `server/.env.example` 항목을 등록합니다.
 마이그레이션은 배포 전 로컬 또는 CI 에서 `pnpm --filter @picky/server db:deploy` 로 적용합니다.
+
+로컬에서 이미지 확인:
+
+```bash
+docker build -t picky-server .
+docker run -p 21000:21000 -e DATABASE_URL="..." picky-server
+```
 
 ### app / admin → Vercel
 

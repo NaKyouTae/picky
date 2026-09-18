@@ -10,6 +10,8 @@
   --color-ink: #191919;
   --color-ink-sub: #6b7280;
   --color-line: #ececec;
+  /* 앱 셸 바깥(데스크톱 웹 여백) 배경 */
+  --color-canvas: #f2f3f5;
 
   --font-sans:
     'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, 'Apple SD Gothic Neo',
@@ -17,11 +19,21 @@
 
   /* 모바일 셸 최대 폭 */
   --spacing-shell: 430px;
+
+  /* 데스크톱에서 셸 경계를 드러내는 그림자 */
+  --shadow-shell: 0 0 0 1px rgb(0 0 0 / 0.04), 0 8px 40px rgb(0 0 0 / 0.08);
 }
 
 :root {
+  /* 다크모드 미지원 — 브라우저 네이티브 UI 까지 라이트로 고정 (layout.tsx viewport.colorScheme 와 한 쌍) */
+  color-scheme: light;
+
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* 하단 네비 높이 + 세이프에어리어. 스크롤 콘텐츠 하단 여백 계산에 사용 */
+  --nav-height: 56px;
+  --nav-space: calc(var(--nav-height) + max(var(--safe-bottom), 8px));
 }
 
 @layer base {
@@ -31,10 +43,11 @@
   }
 
   body {
-    @apply bg-white text-ink font-sans antialiased;
-    /* iOS WebView 100vh 버그 회피 */
-    min-height: 100dvh;
-    overscroll-behavior-y: none;
+    @apply bg-canvas text-ink font-sans antialiased;
+    /* 앱 셸이 fixed 이므로 문서 자체는 스크롤하지 않는다 (스크롤은 #app-scroll-container 담당) */
+    height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior: none;
   }
 
   /* 모바일에서 input 포커스 시 확대 방지 */
@@ -47,6 +60,18 @@
   button {
     touch-action: manipulation;
   }
+
+  /* 스크롤바 숨김 — 셸 안에서 네이티브 앱처럼 보이도록 */
+  * {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  *::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
 }
 
 @utility safe-top {
@@ -55,4 +80,16 @@
 
 @utility safe-bottom {
   padding-bottom: var(--safe-bottom);
+}
+
+/* 하단 네비에 가려지지 않도록 스크롤 콘텐츠 하단 여백 */
+@utility pb-nav {
+  padding-bottom: calc(var(--nav-space) + 16px);
+}
+
+/* dvh 미지원 브라우저용 폴백 (ViewportHeightSetter 가 --vh 설정) */
+@utility h-screen-safe {
+  height: 100vh;
+  height: calc(var(--vh, 1vh) * 100);
+  height: 100dvh;
 }

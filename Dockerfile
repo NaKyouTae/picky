@@ -1,5 +1,6 @@
-# Cloudtype 배포용 Dockerfile
-# build context 는 저장소 루트 (Dockerfile 경로: server/Dockerfile)
+# @picky/server (NestJS) 배포용 Dockerfile — 클라우드타입
+# 모노레포 전체를 build context 로 사용하므로 저장소 루트에 둡니다.
+#   docker build -t picky-server .
 FROM node:22-alpine AS base
 RUN corepack enable && apk add --no-cache libc6-compat openssl
 ENV CI=true
