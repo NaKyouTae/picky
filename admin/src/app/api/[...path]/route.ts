@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { API_BASE_URL } from '@/lib/api';
+import { ADMIN_SESSION_COOKIE } from '@/lib/constants';
 
 /**
  * BFF 프록시 — 브라우저 → Next API Route → NestJS
- * ADMIN_TOKEN 을 서버 사이드에서만 붙여 전달합니다.
+ * 로그인 세션 JWT(httpOnly 쿠키)를 서버 사이드에서만 Authorization 헤더로 붙여 전달합니다.
+ * 세션이 없으면 서버 간 호출용 ADMIN_TOKEN 으로 폴백합니다.
  */
 async function proxy(req: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const { path } = await context.params;
@@ -13,8 +15,9 @@ async function proxy(req: NextRequest, context: { params: Promise<{ path: string
   const headers = new Headers(req.headers);
   headers.delete('host');
   headers.delete('content-length');
-  if (process.env.ADMIN_TOKEN) {
-    headers.set('authorization', `Bearer ${process.env.ADMIN_TOKEN}`);
+  const bearer = req.cookies.get(ADMIN_SESSION_COOKIE)?.value || process.env.ADMIN_TOKEN;
+  if (bearer) {
+    headers.set('authorization', `Bearer ${bearer}`);
   }
 
   const res = await fetch(target, {

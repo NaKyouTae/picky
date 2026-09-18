@@ -1,3 +1,4 @@
+import { KakaoLoginButton } from '@/components/kakao-login-button';
 import { api } from '@/lib/api';
 
 type Health = { status: string; timestamp: string };
@@ -23,6 +24,10 @@ export default async function HomePage() {
       >
         시작하기
       </button>
+
+      <div className="mt-3">
+        <KakaoLoginButton />
+      </div>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers';
+import { ADMIN_SESSION_COOKIE } from './constants';
 
 const API_BASE_URL = process.env.API_BASE_URL ?? 'http://localhost:21000/api';
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN ?? '';
@@ -12,6 +13,8 @@ type RequestOptions = Omit<RequestInit, 'body' | 'method'> & {
 async function request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
   const { body, headers, ...rest } = options;
   const cookieStore = await cookies();
+  // 로그인 세션 JWT 를 우선 사용하고, 없으면 서버 간 호출용 정적 토큰으로 폴백한다.
+  const bearer = cookieStore.get(ADMIN_SESSION_COOKIE)?.value || ADMIN_TOKEN;
 
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...rest,
@@ -19,7 +22,7 @@ async function request<T>(method: string, path: string, options: RequestOptions 
     headers: {
       'Content-Type': 'application/json',
       cookie: cookieStore.toString(),
-      ...(ADMIN_TOKEN ? { authorization: `Bearer ${ADMIN_TOKEN}` } : {}),
+      ...(bearer ? { authorization: `Bearer ${bearer}` } : {}),
       ...headers,
     },
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -34,7 +37,7 @@ async function request<T>(method: string, path: string, options: RequestOptions 
   return (await res.json()) as T;
 }
 
-/** 서버 컴포넌트 전용 API 클라이언트 (ADMIN_TOKEN 자동 첨부) */
+/** 서버 컴포넌트 전용 API 클라이언트 (관리자 토큰 자동 첨부) */
 export const api = {
   get: <T>(path: string, options?: RequestOptions) => request<T>('GET', path, options),
   post: <T>(path: string, body?: unknown, options?: RequestOptions) =>

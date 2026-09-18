@@ -7,6 +7,11 @@
   --color-brand-600: #ef4146;
   --color-brand-700: #c9282d;
 
+  /* 카카오 브랜드 컬러 (로그인 버튼) */
+  --color-kakao: #fee500;
+  --color-kakao-pressed: #f2da00;
+  --color-kakao-label: rgb(0 0 0 / 0.85);
+
   --color-ink: #191919;
   --color-ink-sub: #6b7280;
   --color-line: #ececec;

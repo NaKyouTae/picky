@@ -3,7 +3,8 @@
 #
 # ⚠️ 배포 전, 클라우드타입 프로젝트의 [시크릿] 탭에 아래 secret 이름들을 먼저 등록하세요.
 #    DATABASE_URL, DIRECT_URL, SUPABASE_URL, SUPABASE_ANON_KEY,
-#    SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET, ADMIN_TOKEN
+#    SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET, ADMIN_TOKEN,
+#    ADMIN_USERNAME, ADMIN_PASSWORD
 name: picky-server
 app: dockerfile
 options:
@@ -35,8 +36,15 @@ options:
       secret: SUPABASE_SERVICE_ROLE_KEY
     - name: JWT_SECRET
       secret: JWT_SECRET
+    - name: JWT_EXPIRES_IN
+      value: 7d
     - name: ADMIN_TOKEN
       secret: ADMIN_TOKEN
+    # 어드민 로그인 계정 (DB 아님 — 환경변수로 관리)
+    - name: ADMIN_USERNAME
+      secret: ADMIN_USERNAME
+    - name: ADMIN_PASSWORD
+      secret: ADMIN_PASSWORD
 context:
   git:
     url: https://github.com/NaKyouTae/picky.git
