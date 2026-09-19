@@ -36,6 +36,26 @@ enum ProviderType {
   GOOGLE
 }
 
+/// 챌린지 카테고리 — 누구와 함께 하는 챌린지인가
+enum ChallengeCategory {
+  /// 혼자
+  SOLO
+  /// 둘이서
+  COUPLE
+  /// 아이랑
+  KIDS
+}
+
+/// 챌린지 노출 상태 — PUBLISHED 만 앱의 랜덤 추첨 대상이 된다
+enum ChallengeStatus {
+  /// 작성 중 (앱에 노출 안 됨)
+  DRAFT
+  /// 공개
+  PUBLISHED
+  /// 보관 (더 이상 뽑히지 않음)
+  ARCHIVED
+}
+
 model User {
   id     String     @id @default(uuid()) @db.Uuid
   /// 필수 — SNS 프로필에서 수집
@@ -82,4 +102,78 @@ model Account {
   // 한 유저가 같은 제공자를 두 번 연결하지 못하도록
   @@unique([userId, providerType])
   @@map("accounts")
+}
+
+/// 관리자가 등록하는 챌린지. 앱에서는 카테고리를 고른 뒤 PUBLISHED 중 하나가 랜덤으로 뽑힌다.
+model Challenge {
+  id String @id @default(uuid()) @db.Uuid
+
+  category ChallengeCategory
+  status   ChallengeStatus   @default(DRAFT)
+
+  /// 카드에 크게 보이는 한 줄 (예: "서로 좋아하는 영화 바꿔 시청하기")
+  title String @db.VarChar(120)
+  /// 상세 설명 — 어떻게 진행하는지
+  description String? @db.Text
+  /// 소요 시간 안내 (예: "2시간", "하루") — 자유 문구
+  duration String? @db.VarChar(40)
+  /// 카드 상단 이모지 (예: "🎬")
+  emoji String? @db.VarChar(8)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 앱 랜덤 추첨: WHERE (category, status) — 선행 컬럼부터 조건에 그대로 쓰인다
+  @@index([category, status])
+  // 어드민 목록: WHERE status + ORDER BY createdAt desc
+  @@index([status, createdAt])
+  @@index([createdAt])
+  @@map("challenges")
+}
+
+/// 스티커 템플릿 노출 상태 — PUBLISHED 만 앱 목록에 보인다
+enum StickerTemplateStatus {
+  /// 작성 중 (앱에 노출 안 됨)
+  DRAFT
+  /// 공개
+  PUBLISHED
+  /// 보관 (더 이상 노출되지 않음)
+  ARCHIVED
+}
+
+/// 관리자가 등록하는 사진 콜라주 템플릿.
+/// 템플릿 이미지(사진 자리가 비어 있는 PNG) 위에 번호를 매긴 사진 영역을 두고,
+/// 앱에서 그 번호 순서대로 사진을 채우면 한 장의 종합 사진이 된다.
+model StickerTemplate {
+  id String @id @default(uuid()) @db.Uuid
+
+  title  String                @db.VarChar(120)
+  status StickerTemplateStatus @default(DRAFT)
+
+  /// 템플릿 이미지 public URL
+  imageUrl String @map("image_url") @db.Text
+  /// Storage 내부 경로 — 이미지 교체/삭제 시 이전 파일을 지우는 데 쓴다
+  imagePath String @map("image_path") @db.VarChar(500)
+  /// 원본 픽셀 크기 — 슬롯의 % 좌표를 실제 캔버스 크기로 환산할 때 쓴다
+  imageWidth  Int @map("image_width")
+  imageHeight Int @map("image_height")
+
+  /// 사진 영역 목록 `[{ x, y, width, height, rotation }, ...]`.
+  /// x/y/width/height 는 템플릿 크기 대비 % (0~100), rotation 은 도(deg).
+  /// **배열 순서가 곧 사진 번호다** (index 0 = 1번). 번호를 따로 저장하지 않으므로
+  /// 빠진 번호·중복 번호가 생길 수 없다.
+  slots Json
+
+  /// 앱 목록 정렬 — 작을수록 앞에 보인다
+  displayOrder Int @default(0) @map("display_order")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 앱 목록: WHERE status ORDER BY display_order, created_at — 선행 컬럼부터 그대로 쓰인다
+  @@index([status, displayOrder, createdAt])
+  // 어드민 목록: WHERE status + ORDER BY created_at desc
+  @@index([status, createdAt])
+  @@index([createdAt])
+  @@map("sticker_templates")
 }

@@ -8,6 +8,8 @@ import { cn } from '@/lib/utils';
 const MENUS = [
   { href: '/', label: '대시보드' },
   { href: '/users', label: '사용자' },
+  { href: '/challenges', label: '챌린지' },
+  { href: '/stickers', label: '스티커' },
 ] as const;
 
 export function Sidebar({ username }: { username: string }) {
@@ -28,20 +30,22 @@ export function Sidebar({ username }: { username: string }) {
         Picky <span className="text-brand-500">Admin</span>
       </div>
       <nav className="mt-4 space-y-1">
-        {MENUS.map((menu) => (
-          <Link
-            key={menu.href}
-            href={menu.href}
-            className={cn(
-              'block rounded-lg px-3 py-2 text-sm font-medium',
-              pathname === menu.href
-                ? 'bg-brand-500/10 text-brand-600'
-                : 'text-ink-sub hover:bg-gray-100',
-            )}
-          >
-            {menu.label}
-          </Link>
-        ))}
+        {MENUS.map((menu) => {
+          // 하위 경로(/challenges/new, /challenges/:id)에서도 메뉴가 활성으로 보이도록
+          const active = menu.href === '/' ? pathname === '/' : pathname.startsWith(menu.href);
+          return (
+            <Link
+              key={menu.href}
+              href={menu.href}
+              className={cn(
+                'block rounded-lg px-3 py-2 text-sm font-medium',
+                active ? 'bg-brand-500/10 text-brand-600' : 'text-ink-sub hover:bg-gray-100',
+              )}
+            >
+              {menu.label}
+            </Link>
+          );
+        })}
       </nav>
 
       <div className="mt-auto border-t border-line pt-3">

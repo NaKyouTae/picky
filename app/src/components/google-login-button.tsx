@@ -1,23 +1,24 @@
 /**
- * 구글 로그인 버튼.
+ * 구글 로그인 버튼 (로고만).
  * OAuth 는 top-level 내비게이션이어야 하므로 fetch 가 아니라 링크로 이동한다.
  * (`/auth/google/start` 가 state/nonce 쿠키를 심고 구글 동의 화면으로 리디렉션)
+ * 구글 브랜드 가이드대로 흰 배경 + 회색 테두리를 유지한다.
  */
 export function GoogleLoginButton() {
   return (
     <a
       href="/auth/google/start"
-      className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-google-border bg-white text-base font-semibold text-google-label transition-colors active:bg-google-pressed"
+      aria-label="구글로 로그인"
+      className="flex size-14 items-center justify-center rounded-full border border-google-border bg-white transition-colors active:bg-google-pressed"
     >
       <GoogleSymbol />
-      구글 로그인
     </a>
   );
 }
 
 function GoogleSymbol() {
   return (
-    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+    <svg width="24" height="24" viewBox="0 0 18 18" aria-hidden="true">
       <path
         fill="#4285F4"
         d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62Z"

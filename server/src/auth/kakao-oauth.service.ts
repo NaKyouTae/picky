@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHash, randomBytes } from 'node:crypto';
+import type { Gender } from '../generated/prisma/enums';
 
 const AUTHORIZE_ENDPOINT = 'https://kauth.kakao.com/oauth/authorize';
 const TOKEN_ENDPOINT = 'https://kauth.kakao.com/oauth/token';
@@ -23,12 +24,16 @@ export interface KakaoAuthorizeRequest {
   codeVerifier: string;
 }
 
-/** 로그인에 필요한 최소 프로필 */
+/** 로그인에 필요한 프로필 (아래 3개는 선택 동의라 대개 비어 있다) */
 export interface KakaoProfile {
   /** 카카오 회원번호 — Account.providerId */
   sub: string;
   email: string;
   name: string;
+  gender: Gender | null;
+  /** "20~29" 처럼 카카오가 주는 구간 문자열 그대로 */
+  ageRange: string | null;
+  birthday: Date | null;
 }
 
 /**
@@ -69,9 +74,11 @@ export class KakaoOAuthService {
       client_id: this.clientId,
       redirect_uri: this.redirectUri,
       response_type: 'code',
-      // openid 가 있어야 id_token 이 내려온다. 이메일·닉네임은 카카오 콘솔의
-      // [동의항목]에서 먼저 사용 설정돼 있어야 요청할 수 있다.
-      scope: 'openid account_email profile_nickname',
+      // openid 가 있어야 id_token 이 내려온다.
+      // ⚠️ 여기 적은 항목은 모두 카카오 콘솔 [동의항목]에서 먼저 사용 설정돼 있어야 한다.
+      //    설정되지 않은 항목이 섞이면 인가 단계에서 KOE205 로 거부된다.
+      //    성별·연령대·생일은 선택 동의라 사용자가 거부하면 그냥 비어서 온다.
+      scope: 'openid account_email profile_nickname gender age_range birthday birthyear',
       state,
       nonce,
       code_challenge: base64UrlEncode(createHash('sha256').update(codeVerifier).digest()),
@@ -91,7 +98,14 @@ export class KakaoOAuthService {
     const { sub, nickname } = this.parseIdToken(token.idToken, nonce);
     const account = await this.requestAccount(token.accessToken);
 
-    return { sub, email: account.email, name: account.nickname || nickname || '카카오 사용자' };
+    return {
+      sub,
+      email: account.email,
+      name: account.nickname || nickname || '카카오 사용자',
+      gender: account.gender,
+      ageRange: account.ageRange,
+      birthday: account.birthday,
+    };
   }
 
   private async requestToken(
@@ -184,7 +198,7 @@ export class KakaoOAuthService {
    * User.email 은 필수·unique 이므로 검증되지 않은 이메일은 받지 않는다
    * (미인증 이메일로 계정을 만들면 다른 제공자 계정의 소유권을 가로챌 수 있다).
    */
-  private async requestAccount(accessToken: string): Promise<{ email: string; nickname: string }> {
+  private async requestAccount(accessToken: string): Promise<KakaoAccountInfo> {
     const res = await fetch(USER_ME_ENDPOINT, {
       method: 'GET',
       headers: { authorization: `Bearer ${accessToken}` },
@@ -201,14 +215,7 @@ export class KakaoOAuthService {
       throw new UnauthorizedException('카카오 계정 정보를 불러올 수 없습니다.');
     }
 
-    const data = (await res.json()) as {
-      kakao_account?: {
-        email?: string;
-        is_email_valid?: boolean;
-        is_email_verified?: boolean;
-        profile?: { nickname?: string };
-      };
-    };
+    const data = (await res.json()) as { kakao_account?: KakaoAccount };
 
     const account = data.kakao_account;
     const email = account?.email?.trim() ?? '';
@@ -223,8 +230,69 @@ export class KakaoOAuthService {
       throw new UnauthorizedException('이메일이 확인된 카카오 계정만 로그인할 수 있습니다.');
     }
 
-    return { email, nickname: String(account?.profile?.nickname ?? '').trim() };
+    return {
+      email,
+      nickname: String(account?.profile?.nickname ?? '').trim(),
+      // 선택 동의 항목 — 거부했으면 필드 자체가 오지 않는다.
+      gender: parseGender(account?.gender),
+      ageRange: account?.age_range?.trim().slice(0, 20) || null,
+      birthday: parseBirthday(account),
+    };
   }
+}
+
+/** `/v2/user/me` 의 kakao_account 중 우리가 쓰는 부분 */
+interface KakaoAccount {
+  email?: string;
+  is_email_valid?: boolean;
+  is_email_verified?: boolean;
+  profile?: { nickname?: string };
+  gender?: string;
+  /** "20~29" 형태 */
+  age_range?: string;
+  /** "MMDD" — 연도는 birthyear 로 따로 온다 */
+  birthday?: string;
+  birthday_type?: string;
+  /** "YYYY" */
+  birthyear?: string;
+}
+
+interface KakaoAccountInfo {
+  email: string;
+  nickname: string;
+  gender: Gender | null;
+  ageRange: string | null;
+  birthday: Date | null;
+}
+
+function parseGender(value?: string): Gender | null {
+  // 카카오는 female/male 만 준다 (Gender.OTHER 에 대응하는 값이 없다).
+  if (value === 'male') return 'MALE';
+  if (value === 'female') return 'FEMALE';
+  return null;
+}
+
+/**
+ * 카카오는 생일을 "MMDD"(birthday)와 "YYYY"(birthyear)로 나눠 준다.
+ * 둘 다 동의를 받아야 날짜 하나를 만들 수 있다.
+ */
+function parseBirthday(account?: KakaoAccount): Date | null {
+  const mmdd = account?.birthday?.trim();
+  const year = account?.birthyear?.trim();
+
+  if (!mmdd || !year) return null;
+  // 음력 생일을 양력 Date 로 저장하면 틀린 날짜가 되므로 받지 않는다.
+  if (account?.birthday_type === 'LUNAR') return null;
+  if (!/^\d{4}$/.test(mmdd) || !/^\d{4}$/.test(year)) return null;
+
+  const month = Number(mmdd.slice(0, 2));
+  const day = Number(mmdd.slice(2, 4));
+  // @db.Date 컬럼 — 시간대에 따라 날짜가 하루 밀리지 않도록 UTC 자정으로 만든다.
+  const date = new Date(Date.UTC(Number(year), month - 1, day));
+
+  // 2월 30일처럼 존재하지 않는 날짜는 Date 가 다음 달로 넘겨버리므로 되돌려 확인한다.
+  if (date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
+  return date;
 }
 
 /** URL 에 그대로 넣을 수 있는 난수 문자열 */

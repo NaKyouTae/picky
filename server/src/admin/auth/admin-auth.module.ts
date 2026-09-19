@@ -16,8 +16,7 @@ import { AdminAuthService } from './admin-auth.service';
         secret: config.getOrThrow<string>('JWT_SECRET'),
         signOptions: {
           // '7d' 같은 ms 문자열 리터럴 타입을 환경변수(string)로 받기 위한 캐스팅
-          expiresIn: (config.get<string>('JWT_EXPIRES_IN') ??
-            '7d') as JwtSignOptions['expiresIn'],
+          expiresIn: (config.get<string>('JWT_EXPIRES_IN') ?? '7d') as JwtSignOptions['expiresIn'],
         },
       }),
     }),

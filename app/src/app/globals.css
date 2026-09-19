@@ -32,6 +32,54 @@
 
   /* 데스크톱에서 셸 경계를 드러내는 그림자 */
   --shadow-shell: 0 0 0 1px rgb(0 0 0 / 0.04), 0 8px 40px rgb(0 0 0 / 0.08);
+
+  /* 바텀시트 — iOS 시트에 가까운 감속 커브 */
+  --animate-sheet-in: sheet-in 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+  --animate-sheet-out: sheet-out 0.2s ease-in forwards;
+  --animate-overlay-in: overlay-in 0.2s ease-out;
+  --animate-overlay-out: overlay-out 0.2s ease-in forwards;
+
+  /* 가운데 모달 */
+  --animate-pop-in: pop-in 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+  --animate-pop-out: pop-out 0.15s ease-in forwards;
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@keyframes pop-out {
+  to {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes sheet-out {
+  to {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes overlay-out {
+  to {
+    opacity: 0;
+  }
 }
 
 :root {
@@ -44,6 +92,9 @@
   /* 하단 네비 높이 + 세이프에어리어. 스크롤 콘텐츠 하단 여백 계산에 사용 */
   --nav-height: 56px;
   --nav-space: calc(var(--nav-height) + max(var(--safe-bottom), 8px));
+
+  /* 하단 고정 CTA 가 차지하는 높이 (버튼 56px + 위 12px + 아래 최소 12px) */
+  --cta-space: calc(56px + 12px + max(var(--safe-bottom), 12px));
 }
 
 @layer base {
@@ -92,9 +143,25 @@
   padding-bottom: var(--safe-bottom);
 }
 
-/* 하단 네비에 가려지지 않도록 스크롤 콘텐츠 하단 여백 */
+/* 하단 네비에 가려지지 않도록 스크롤 콘텐츠 하단 여백
+   (현재 레이아웃에서는 하단 네비를 쓰지 않는다 — bottom-nav 를 되살릴 때 필요) */
 @utility pb-nav {
   padding-bottom: calc(var(--nav-space) + 16px);
+}
+
+/* 하단 네비가 없는 화면의 콘텐츠 하단 여백 */
+@utility pb-page {
+  padding-bottom: calc(var(--safe-bottom) + 24px);
+}
+
+/* 하단 고정 바 — 세이프에어리어가 0인 환경(데스크톱 브라우저)에서도 최소 여백을 준다 */
+@utility pb-bar {
+  padding-bottom: max(var(--safe-bottom), 12px);
+}
+
+/* 하단 고정 CTA 에 가려지지 않도록 하는 콘텐츠 여백 */
+@utility pb-cta {
+  padding-bottom: calc(var(--cta-space) + 24px);
 }
 
 /* dvh 미지원 브라우저용 폴백 (ViewportHeightSetter 가 --vh 설정) */
@@ -102,4 +169,15 @@
   height: 100vh;
   height: calc(var(--vh, 1vh) * 100);
   height: 100dvh;
+}
+
+/* 모션을 줄이도록 설정한 사용자에게는 시트가 즉시 나타나게 한다 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
