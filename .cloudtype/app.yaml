@@ -4,7 +4,12 @@
 # ⚠️ 배포 전, 클라우드타입 프로젝트의 [시크릿] 탭에 아래 secret 이름들을 먼저 등록하세요.
 #    DATABASE_URL, DIRECT_URL, SUPABASE_URL, SUPABASE_ANON_KEY,
 #    SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET, ADMIN_TOKEN,
-#    ADMIN_USERNAME, ADMIN_PASSWORD
+#    ADMIN_USERNAME, ADMIN_PASSWORD,
+#    KAKAO_REST_API_KEY, KAKAO_CLIENT_SECRET,
+#    GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+#
+# ⚠️ 이 파일의 env 목록이 컨테이너 환경변수의 전부입니다. 콘솔에서 직접 추가한 값은
+#    다음 배포(워크플로/콘솔 모두 이 파일을 읽음) 때 사라지므로 여기에 선언해야 합니다.
 # 콘솔에 이미 배포된 서비스 이름과 일치해야 한다 (다르면 새 서비스가 생기고 URL 도 새로 발급됨)
 name: picky
 app: dockerfile
@@ -18,9 +23,9 @@ options:
       value: production
     - name: PORT
       value: "21000"
-    # 배포된 프론트 도메인으로 수정하세요 (쉼표 구분)
+    # 배포된 프론트 도메인 + 로컬 개발용 (쉼표 구분)
     - name: CORS_ORIGINS
-      value: "http://localhost:21001,http://localhost:21002"
+      value: "https://picky.spectrify.kr,http://localhost:21001,http://localhost:21002"
     - name: SUPABASE_STORAGE_BUCKET
       value: picky
     # Supabase transaction pooler (6543)
@@ -46,6 +51,24 @@ options:
       secret: ADMIN_USERNAME
     - name: ADMIN_PASSWORD
       secret: ADMIN_PASSWORD
+    # ── 카카오 로그인 ──────────────────────────────────
+    # 콘솔 선행 설정: 카카오 로그인 활성화 + OpenID Connect 활성화 +
+    # 동의항목(닉네임·카카오계정 이메일) 사용 설정
+    - name: KAKAO_REST_API_KEY
+      secret: KAKAO_REST_API_KEY
+    - name: KAKAO_CLIENT_SECRET
+      secret: KAKAO_CLIENT_SECRET
+    # 카카오 콘솔의 Redirect URI 와 문자 단위로 동일해야 함
+    - name: KAKAO_REDIRECT_URI
+      value: https://picky.spectrify.kr/auth/kakao/callback
+    # ── 구글 로그인 ────────────────────────────────────
+    - name: GOOGLE_CLIENT_ID
+      secret: GOOGLE_CLIENT_ID
+    - name: GOOGLE_CLIENT_SECRET
+      secret: GOOGLE_CLIENT_SECRET
+    # 구글 콘솔의 '승인된 리디렉션 URI' 와 문자 단위로 동일해야 함
+    - name: GOOGLE_REDIRECT_URI
+      value: https://picky.spectrify.kr/auth/google/callback
 context:
   git:
     url: https://github.com/NaKyouTae/picky.git
