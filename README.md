@@ -91,11 +91,24 @@ Prisma 7 부터 연결 URL 은 `schema.prisma` 가 아닌 곳에서 관리합니
 배포 설정은 [.cloudtype/app.yaml](.cloudtype/app.yaml) 에 있습니다 (`app: dockerfile`, 포트 `21000`, 헬스체크 `/api/health`).
 루트 [Dockerfile](Dockerfile) 이 모노레포 전체를 build context 로 사용해 `@picky/server` 만 빌드합니다.
 
-1. 클라우드타입 프로젝트 → **시크릿** 탭에 아래 값을 먼저 등록
-   `DATABASE_URL` · `DIRECT_URL` · `SUPABASE_URL` · `SUPABASE_ANON_KEY` · `SUPABASE_SERVICE_ROLE_KEY` · `JWT_SECRET` · `ADMIN_TOKEN`
-2. **내 GitHub 저장소 배포하기** → `NaKyouTae/picky` 선택 (서브 디렉토리는 비워 둠)
-3. `.cloudtype/app.yaml` 을 자동으로 읽어 설정이 채워집니다
-4. 프론트 도메인이 정해지면 `CORS_ORIGINS` 값을 해당 도메인으로 수정
+환경변수는 두 군데로 나뉩니다. **시크릿 탭은 쓰지 않습니다.**
+
+| | 어디에 | 무엇을 |
+| --- | --- | --- |
+| 공개돼도 되는 설정 | `app.yaml` 의 `env` | 배포할 때마다 자동 세팅 (`NODE_ENV` · `PORT` · `CORS_ORIGINS` · `SUPABASE_STORAGE_BUCKET` · `JWT_EXPIRES_IN` · 카카오/구글 `REDIRECT_URI`) |
+| 비밀값 | 콘솔 **환경변수** 화면에 직접 입력 | `DATABASE_URL` · `DIRECT_URL` · `SUPABASE_URL` · `SUPABASE_SERVICE_ROLE_KEY` · `JWT_SECRET` · `ADMIN_TOKEN` · `ADMIN_USERNAME` · `ADMIN_PASSWORD` · `KAKAO_REST_API_KEY` · `KAKAO_CLIENT_SECRET` · `GOOGLE_CLIENT_ID` · `GOOGLE_CLIENT_SECRET` |
+
+이 저장소는 PUBLIC 이라 비밀값을 `app.yaml` 에 적을 수 없습니다. 값은 콘솔에만 두고 파일은 건드리지 않습니다.
+(`SUPABASE_ANON_KEY` 는 서버 코드가 읽지 않으므로 설정하지 않아도 됩니다.)
+
+1. **내 GitHub 저장소 배포하기** → `NaKyouTae/picky` 선택 (서브 디렉토리는 비워 둠)
+2. `.cloudtype/app.yaml` 을 자동으로 읽어 설정이 채워집니다
+3. 콘솔 **환경변수** 화면에서 위 표의 비밀값들을 직접 입력
+4. 프론트 도메인이 정해지면 `app.yaml` 의 `CORS_ORIGINS` 값을 해당 도메인으로 수정
+
+> ⚠️ 첫 배포 뒤 콘솔 **환경변수** 화면에서 3번의 값들이 그대로 남아 있는지 확인하세요.
+> 파일에 없는 변수를 배포가 지우는지는 클라우드타입 문서에 명시돼 있지 않습니다.
+> 지워진다면 값을 GitHub Actions 에서 주입하는 방식으로 바꿔야 합니다.
 
 마이그레이션은 배포 전 로컬 또는 CI 에서 `pnpm --filter @picky/server db:deploy` 로 적용합니다.
 

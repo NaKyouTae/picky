@@ -1,15 +1,29 @@
 # 클라우드타입 배포 설정
 # 콘솔에서 "내 GitHub 저장소 배포하기" → NaKyouTae/picky 선택 시 이 파일을 읽습니다.
 #
-# ⚠️ 배포 전, 클라우드타입 프로젝트의 [시크릿] 탭에 아래 secret 이름들을 먼저 등록하세요.
-#    DATABASE_URL, DIRECT_URL, SUPABASE_URL, SUPABASE_ANON_KEY,
-#    SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET, ADMIN_TOKEN,
-#    ADMIN_USERNAME, ADMIN_PASSWORD,
-#    KAKAO_REST_API_KEY, KAKAO_CLIENT_SECRET,
-#    GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+# ── 환경변수를 두 군데로 나눈 이유 ────────────────────────────
+# 이 저장소는 PUBLIC 이라 비밀값을 여기에 적을 수 없고, [시크릿] 탭은 쓰지 않기로 했습니다.
+# 그래서 아래 env 에는 공개돼도 되는 설정만 두고 배포할 때마다 자동으로 덮어씁니다.
+# 비밀값은 클라우드타입 콘솔의 [환경변수] 화면에서 직접 입력해 두고, 이 파일은 건드리지 않습니다.
 #
-# ⚠️ 이 파일의 env 목록이 컨테이너 환경변수의 전부입니다. 콘솔에서 직접 추가한 값은
-#    다음 배포(워크플로/콘솔 모두 이 파일을 읽음) 때 사라지므로 여기에 선언해야 합니다.
+# ⚠️ 콘솔에서 직접 입력해야 하는 값 (이 파일에는 없음)
+#    DATABASE_URL              Supabase transaction pooler (6543)
+#    DIRECT_URL                Supabase direct connection (5432) — 마이그레이션용
+#    SUPABASE_URL
+#    SUPABASE_SERVICE_ROLE_KEY Supabase > API Keys > Secret key (sb_secret_…)
+#    JWT_SECRET
+#    ADMIN_TOKEN               어드민 프론트의 ADMIN_TOKEN 과 동일해야 함
+#    ADMIN_USERNAME            어드민 로그인 계정 (DB 아님 — 환경변수로 관리)
+#    ADMIN_PASSWORD
+#    KAKAO_REST_API_KEY        콘솔 선행 설정: 카카오 로그인 + OpenID Connect 활성화,
+#    KAKAO_CLIENT_SECRET       동의항목(닉네임·카카오계정 이메일) 사용 설정
+#    GOOGLE_CLIENT_ID
+#    GOOGLE_CLIENT_SECRET
+#    (SUPABASE_ANON_KEY 는 서버 코드가 읽지 않으므로 넣지 않아도 됩니다)
+#
+# ⚠️ 첫 배포 뒤 콘솔 [환경변수] 화면에서 위 값들이 그대로 남아 있는지 한 번 확인하세요.
+#    파일에 없는 변수를 배포가 지우는지 여부는 클라우드타입 문서에 명시돼 있지 않습니다.
+#    만약 지워진다면 값을 GitHub Actions 에서 주입하는 방식으로 바꿔야 합니다.
 # 콘솔에 이미 배포된 서비스 이름과 일치해야 한다 (다르면 새 서비스가 생기고 URL 도 새로 발급됨)
 name: picky
 app: dockerfile
@@ -18,6 +32,8 @@ options:
   # 저장소 루트를 build context 로 사용 (서브 디렉토리 설정 없이 배포)
   dockerfile: Dockerfile
   healthz: /api/health
+  # 아래는 전부 공개돼도 되는 값이라 배포할 때 자동으로 세팅된다.
+  # 비밀값은 여기 두지 말고 콘솔 [환경변수] 화면에 직접 입력할 것.
   env:
     - name: NODE_ENV
       value: production
@@ -28,44 +44,11 @@ options:
       value: "https://picky.spectrify.kr,http://localhost:21001,http://localhost:21002"
     - name: SUPABASE_STORAGE_BUCKET
       value: picky
-    # Supabase transaction pooler (6543)
-    - name: DATABASE_URL
-      secret: DATABASE_URL
-    # Supabase direct connection (5432) — 마이그레이션용
-    - name: DIRECT_URL
-      secret: DIRECT_URL
-    - name: SUPABASE_URL
-      secret: SUPABASE_URL
-    - name: SUPABASE_ANON_KEY
-      secret: SUPABASE_ANON_KEY
-    - name: SUPABASE_SERVICE_ROLE_KEY
-      secret: SUPABASE_SERVICE_ROLE_KEY
-    - name: JWT_SECRET
-      secret: JWT_SECRET
     - name: JWT_EXPIRES_IN
       value: 7d
-    - name: ADMIN_TOKEN
-      secret: ADMIN_TOKEN
-    # 어드민 로그인 계정 (DB 아님 — 환경변수로 관리)
-    - name: ADMIN_USERNAME
-      secret: ADMIN_USERNAME
-    - name: ADMIN_PASSWORD
-      secret: ADMIN_PASSWORD
-    # ── 카카오 로그인 ──────────────────────────────────
-    # 콘솔 선행 설정: 카카오 로그인 활성화 + OpenID Connect 활성화 +
-    # 동의항목(닉네임·카카오계정 이메일) 사용 설정
-    - name: KAKAO_REST_API_KEY
-      secret: KAKAO_REST_API_KEY
-    - name: KAKAO_CLIENT_SECRET
-      secret: KAKAO_CLIENT_SECRET
     # 카카오 콘솔의 Redirect URI 와 문자 단위로 동일해야 함
     - name: KAKAO_REDIRECT_URI
       value: https://picky.spectrify.kr/auth/kakao/callback
-    # ── 구글 로그인 ────────────────────────────────────
-    - name: GOOGLE_CLIENT_ID
-      secret: GOOGLE_CLIENT_ID
-    - name: GOOGLE_CLIENT_SECRET
-      secret: GOOGLE_CLIENT_SECRET
     # 구글 콘솔의 '승인된 리디렉션 URI' 와 문자 단위로 동일해야 함
     - name: GOOGLE_REDIRECT_URI
       value: https://picky.spectrify.kr/auth/google/callback
