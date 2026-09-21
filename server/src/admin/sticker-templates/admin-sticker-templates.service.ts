@@ -4,15 +4,10 @@ import { extname } from 'node:path';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { SupabaseService } from '../../common/supabase/supabase.service';
 import type { UploadedImage } from '../../common/types/uploaded-image';
-import type { Prisma } from '../../generated/prisma/client';
 import type { StickerTemplateStatus } from '../../generated/prisma/enums';
-import {
-  normalizeSlots,
-  readSlots,
-  type StickerSlot,
-} from '../../sticker-templates/sticker-slot';
 import type { CreateStickerTemplateDto } from './dto/create-sticker-template.dto';
 import type { ListAdminStickerTemplatesDto } from './dto/list-admin-sticker-templates.dto';
+import type { ReorderStickerTemplatesDto } from './dto/reorder-sticker-templates.dto';
 import type { UpdateStickerTemplateDto } from './dto/update-sticker-template.dto';
 
 const DEFAULT_TAKE = 20;
@@ -37,7 +32,6 @@ export interface AdminStickerTemplateRow {
   imagePath: string;
   imageWidth: number;
   imageHeight: number;
-  slots: StickerSlot[];
   displayOrder: number;
   createdAt: Date;
   updatedAt: Date;
@@ -58,7 +52,6 @@ const TEMPLATE_SELECT = {
   imagePath: true,
   imageWidth: true,
   imageHeight: true,
-  slots: true,
   displayOrder: true,
   createdAt: true,
   updatedAt: true,
@@ -91,7 +84,11 @@ export class AdminStickerTemplatesService {
 
   /**
    * 템플릿 목록 (커서 기반).
-   * 정렬은 createdAt 역순 + id 보조 키. 상태 필터는 `@@index([status, createdAt])` 가 커버한다.
+   *
+   * 정렬은 앱과 같은 displayOrder 오름차순 — 어드민이 드래그로 만든 순서가
+   * 그대로 앱 스티커 시트의 순서라서, 목록도 같은 순서로 보여야 한다.
+   * displayOrder 는 중복될 수 있으므로 커서가 흔들리지 않게 id 를 마지막 보조 키로 둔다.
+   * `@@index([status, displayOrder, createdAt])` 가 필터와 정렬을 커버한다.
    */
   async list({
     q,
@@ -111,13 +108,12 @@ export class AdminStickerTemplatesService {
       take: take + 1,
       // skip: 1 은 offset 페이징이 아니라 커서 행 자체를 제외하기 위한 것이다.
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      orderBy: [{ displayOrder: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
       select: TEMPLATE_SELECT,
     });
 
     const hasNext = rows.length > take;
-    const page = hasNext ? rows.slice(0, take) : rows;
-    const items = page.map((row) => ({ ...row, slots: readSlots(row.slots) }));
+    const items = hasNext ? rows.slice(0, take) : rows;
 
     return { items, nextCursor: hasNext ? (items.at(-1)?.id ?? null) : null };
   }
@@ -128,11 +124,14 @@ export class AdminStickerTemplatesService {
       select: TEMPLATE_SELECT,
     });
     if (!template) throw new NotFoundException('스티커 템플릿을 찾을 수 없습니다.');
-    return { ...template, slots: readSlots(template.slots) };
+    return template;
   }
 
+  /** 새 템플릿은 목록 맨 뒤에 붙인다 — 순서는 이후 드래그로 바꾼다 */
   async create(dto: CreateStickerTemplateDto): Promise<AdminStickerTemplateRow> {
-    const created = await this.prisma.stickerTemplate.create({
+    const last = await this.prisma.stickerTemplate.aggregate({ _max: { displayOrder: true } });
+
+    return this.prisma.stickerTemplate.create({
       data: {
         title: dto.title,
         status: dto.status,
@@ -141,12 +140,10 @@ export class AdminStickerTemplatesService {
         imageUrl: this.supabase.getPublicUrl(dto.imagePath),
         imageWidth: dto.imageWidth,
         imageHeight: dto.imageHeight,
-        slots: toSlotsJson(dto.slots),
-        displayOrder: dto.displayOrder,
+        displayOrder: (last._max.displayOrder ?? -1) + 1,
       },
       select: TEMPLATE_SELECT,
     });
-    return { ...created, slots: readSlots(created.slots) };
   }
 
   async update(id: string, dto: UpdateStickerTemplateDto): Promise<AdminStickerTemplateRow> {
@@ -164,8 +161,6 @@ export class AdminStickerTemplatesService {
         ...(nextPath ? { imagePath: nextPath, imageUrl: this.supabase.getPublicUrl(nextPath) } : {}),
         imageWidth: dto.imageWidth,
         imageHeight: dto.imageHeight,
-        ...(dto.slots ? { slots: toSlotsJson(dto.slots) } : {}),
-        displayOrder: dto.displayOrder,
       },
       select: TEMPLATE_SELECT,
     });
@@ -174,7 +169,27 @@ export class AdminStickerTemplatesService {
     // SupabaseService 가 로그만 남기고 삼킨다.
     if (replacingImage) await this.supabase.remove([current.imagePath]);
 
-    return { ...updated, slots: readSlots(updated.slots) };
+    return updated;
+  }
+
+  /**
+   * 목록 순서 변경 — 받은 배열 순서대로 displayOrder 를 0,1,2… 로 다시 매긴다.
+   *
+   * 일부만 보내면 보내지 않은 행과 번호가 겹쳐 순서가 뒤엉키므로 전체 목록을 받는다.
+   * 여러 행을 한 번에 바꾸므로 트랜잭션으로 묶어 중간 상태가 보이지 않게 한다.
+   */
+  async reorder({ ids }: ReorderStickerTemplatesDto): Promise<void> {
+    // 없는 id 가 섞여 있으면 update 가 P2025 로 터지므로 미리 막는다.
+    const found = await this.prisma.stickerTemplate.count({ where: { id: { in: ids } } });
+    if (found !== ids.length) {
+      throw new NotFoundException('목록이 바뀌었습니다. 새로고침 후 다시 시도해 주세요.');
+    }
+
+    await this.prisma.$transaction(
+      ids.map((id, index) =>
+        this.prisma.stickerTemplate.update({ where: { id }, data: { displayOrder: index } }),
+      ),
+    );
   }
 
   async remove(id: string): Promise<void> {
@@ -182,14 +197,6 @@ export class AdminStickerTemplatesService {
     await this.prisma.stickerTemplate.delete({ where: { id } });
     await this.supabase.remove([template.imagePath]);
   }
-}
-
-/**
- * Prisma 의 Json 입력 타입은 인덱스 시그니처를 요구해서 구조체 배열이 그대로 들어가지 않는다.
- * 정규화까지 마친 값이므로 여기서 한 번만 넓혀 준다.
- */
-function toSlotsJson(slots: Parameters<typeof normalizeSlots>[0]): Prisma.InputJsonValue {
-  return normalizeSlots(slots) as unknown as Prisma.InputJsonValue;
 }
 
 /** 업로드 API 가 만든 경로만 받는다 — 다른 디렉터리의 파일을 가리키거나 지우지 못하도록 */

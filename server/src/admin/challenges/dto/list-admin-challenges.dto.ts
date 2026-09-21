@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEnum, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
-import { ChallengeCategory, ChallengeStatus } from '../../../generated/prisma/enums';
+import { ChallengeStatus } from '../../../generated/prisma/enums';
 
 /** 관리자 챌린지 목록 조회 조건 (커서 기반 페이지네이션) */
 export class ListAdminChallengesDto {
@@ -10,10 +10,10 @@ export class ListAdminChallengesDto {
   @MaxLength(100)
   q?: string;
 
-  @ApiPropertyOptional({ enum: ChallengeCategory, description: '카테고리 필터' })
+  @ApiPropertyOptional({ description: '카테고리 id 필터' })
   @IsOptional()
-  @IsEnum(ChallengeCategory)
-  category?: ChallengeCategory;
+  @IsUUID()
+  categoryId?: string;
 
   @ApiPropertyOptional({ enum: ChallengeStatus, description: '상태 필터' })
   @IsOptional()

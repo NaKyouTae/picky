@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 const MENUS = [
   { href: '/', label: '대시보드' },
   { href: '/users', label: '사용자' },
+  { href: '/challenge-categories', label: '챌린지 카테고리' },
   { href: '/challenges', label: '챌린지' },
   { href: '/stickers', label: '스티커' },
 ] as const;

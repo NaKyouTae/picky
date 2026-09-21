@@ -91,24 +91,38 @@ Prisma 7 부터 연결 URL 은 `schema.prisma` 가 아닌 곳에서 관리합니
 배포 설정은 [.cloudtype/app.yaml](.cloudtype/app.yaml) 에 있습니다 (`app: dockerfile`, 포트 `21000`, 헬스체크 `/api/health`).
 루트 [Dockerfile](Dockerfile) 이 모노레포 전체를 build context 로 사용해 `@picky/server` 만 빌드합니다.
 
-환경변수는 두 군데로 나뉩니다. **시크릿 탭은 쓰지 않습니다.**
+#### 환경변수 — 콘솔에서만 관리합니다
 
-| | 어디에 | 무엇을 |
-| --- | --- | --- |
-| 공개돼도 되는 설정 | `app.yaml` 의 `env` | 배포할 때마다 자동 세팅 (`NODE_ENV` · `PORT` · `CORS_ORIGINS` · `SUPABASE_STORAGE_BUCKET` · `JWT_EXPIRES_IN` · 카카오/구글 `REDIRECT_URI`) |
-| 비밀값 | 콘솔 **환경변수** 화면에 직접 입력 | `DATABASE_URL` · `DIRECT_URL` · `SUPABASE_URL` · `SUPABASE_SERVICE_ROLE_KEY` · `JWT_SECRET` · `ADMIN_TOKEN` · `ADMIN_USERNAME` · `ADMIN_PASSWORD` · `KAKAO_REST_API_KEY` · `KAKAO_CLIENT_SECRET` · `GOOGLE_CLIENT_ID` · `GOOGLE_CLIENT_SECRET` |
+`app.yaml` 의 `env` 목록은 컨테이너 환경변수를 **통째로 덮어씁니다.** 일부만 적어 두면 콘솔에서
+입력한 나머지가 배포 때마다 지워지므로, `app.yaml` 에는 `env` 선언을 두지 않고 콘솔
+**환경변수** 화면을 단일 소스로 씁니다. **시크릿 탭도 쓰지 않습니다.**
 
-이 저장소는 PUBLIC 이라 비밀값을 `app.yaml` 에 적을 수 없습니다. 값은 콘솔에만 두고 파일은 건드리지 않습니다.
-(`SUPABASE_ANON_KEY` 는 서버 코드가 읽지 않으므로 설정하지 않아도 됩니다.)
+> ⚠️ `app.yaml` 에 `env:` 블록을 다시 추가하지 마세요. 추가하는 순간 콘솔 값이 전부 날아갑니다.
+
+콘솔에 등록할 값 19개 — 운영 전용 값은 로컬 `server/.env` 와 다르니 주의:
+
+| 키 | 값 |
+| --- | --- |
+| `NODE_ENV` | `production` |
+| `PORT` | `21000` |
+| `CORS_ORIGINS` | `https://picky.spectrify.kr,http://localhost:21001,http://localhost:21002` |
+| `SUPABASE_STORAGE_BUCKET` | `picky` |
+| `JWT_EXPIRES_IN` | `7d` |
+| `KAKAO_REDIRECT_URI` | `https://picky.spectrify.kr/auth/kakao/callback` |
+| `GOOGLE_REDIRECT_URI` | `https://picky.spectrify.kr/auth/google/callback` |
+| `DATABASE_URL` · `DIRECT_URL` · `SUPABASE_URL` · `SUPABASE_SERVICE_ROLE_KEY` · `JWT_SECRET` · `ADMIN_TOKEN` · `ADMIN_USERNAME` · `ADMIN_PASSWORD` · `KAKAO_REST_API_KEY` · `KAKAO_CLIENT_SECRET` · `GOOGLE_CLIENT_ID` · `GOOGLE_CLIENT_SECRET` | `server/.env` 값을 그대로 |
+
+- 카카오/구글 `REDIRECT_URI` 는 로컬 `.env` 의 `localhost` 값을 쓰면 안 되고, 각 제공자 콘솔에
+  등록한 Redirect URI 와 문자 단위로 같아야 합니다.
+- `SUPABASE_ANON_KEY` 는 서버 코드가 읽지 않으므로 설정하지 않아도 됩니다.
+- `ADMIN_TOKEN` / `ADMIN_PASSWORD` 는 로컬과 다른 값을 쓰는 편이 안전합니다.
+
+#### 배포 절차
 
 1. **내 GitHub 저장소 배포하기** → `NaKyouTae/picky` 선택 (서브 디렉토리는 비워 둠)
-2. `.cloudtype/app.yaml` 을 자동으로 읽어 설정이 채워집니다
-3. 콘솔 **환경변수** 화면에서 위 표의 비밀값들을 직접 입력
-4. 프론트 도메인이 정해지면 `app.yaml` 의 `CORS_ORIGINS` 값을 해당 도메인으로 수정
-
-> ⚠️ 첫 배포 뒤 콘솔 **환경변수** 화면에서 3번의 값들이 그대로 남아 있는지 확인하세요.
-> 파일에 없는 변수를 배포가 지우는지는 클라우드타입 문서에 명시돼 있지 않습니다.
-> 지워진다면 값을 GitHub Actions 에서 주입하는 방식으로 바꿔야 합니다.
+2. `.cloudtype/app.yaml` 을 자동으로 읽어 빌드 설정(포트·Dockerfile·헬스체크)이 채워집니다
+3. 콘솔 **환경변수** 화면에서 위 19개를 입력
+4. 프론트 도메인이 바뀌면 콘솔의 `CORS_ORIGINS` 값을 해당 도메인으로 수정
 
 마이그레이션은 배포 전 로컬 또는 CI 에서 `pnpm --filter @picky/server db:deploy` 로 적용합니다.
 

@@ -3,17 +3,15 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import {
-  CATEGORIES,
-  CATEGORY_LABELS,
   CHALLENGE_STATUS_LABELS,
   STATUSES,
   type AdminChallenge,
-  type ChallengeCategory,
+  type AdminChallengeCategory,
   type ChallengeStatus,
 } from '@/lib/challenges';
 
 type FormValues = {
-  category: ChallengeCategory;
+  categoryId: string;
   status: ChallengeStatus;
   title: string;
   description: string;
@@ -21,9 +19,12 @@ type FormValues = {
   emoji: string;
 };
 
-function toFormValues(challenge?: AdminChallenge): FormValues {
+function toFormValues(
+  challenge: AdminChallenge | undefined,
+  fallbackCategoryId: string,
+): FormValues {
   return {
-    category: challenge?.category ?? 'COUPLE',
+    categoryId: challenge?.categoryId ?? fallbackCategoryId,
     status: challenge?.status ?? 'PUBLISHED',
     title: challenge?.title ?? '',
     description: challenge?.description ?? '',
@@ -45,18 +46,23 @@ const FIELD =
  */
 export function ChallengeForm({
   challenge,
+  categories,
   framed = true,
   onDone,
   onCancel,
 }: {
   challenge?: AdminChallenge;
+  /** 어드민에 등록된 카테고리 — 선택 목록을 여기서 그린다 */
+  categories: AdminChallengeCategory[];
   /** 카드 테두리 — 모달 안에서는 이미 테두리가 있으므로 false */
   framed?: boolean;
   onDone?: () => void;
   onCancel?: () => void;
 }) {
   const router = useRouter();
-  const [values, setValues] = useState<FormValues>(() => toFormValues(challenge));
+  const [values, setValues] = useState<FormValues>(() =>
+    toFormValues(challenge, categories[0]?.id ?? ''),
+  );
   const [pending, setPending] = useState<'save' | 'delete' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -90,7 +96,7 @@ export function ChallengeForm({
 
     // 빈 문자열은 보내지 않는다 — 서버 DTO 에서 선택 필드는 생략이 곧 "없음" 이다.
     const body = {
-      category: values.category,
+      categoryId: values.categoryId,
       status: values.status,
       title: values.title.trim(),
       description: values.description.trim() || undefined,
@@ -147,13 +153,16 @@ export function ChallengeForm({
           </label>
           <select
             id="category"
-            value={values.category}
-            onChange={(event) => set('category', event.target.value as ChallengeCategory)}
+            value={values.categoryId}
+            onChange={(event) => set('categoryId', event.target.value)}
             className={FIELD}
           >
-            {CATEGORIES.map((category) => (
-              <option key={category} value={category}>
-                {CATEGORY_LABELS[category]}
+            {categories.length === 0 && <option value="">등록된 카테고리가 없습니다</option>}
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.emoji ? `${category.emoji} ` : ''}
+                {category.name}
+                {category.status !== 'PUBLISHED' ? ' (비공개)' : ''}
               </option>
             ))}
           </select>

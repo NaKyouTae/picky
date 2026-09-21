@@ -1,6 +1,15 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { LogoutButton } from '@/components/logout-button';
+import { ConsentMenuRow } from '@/components/consent-menu-row';
+import { PageHeader } from '@/components/page-header';
+import {
+  MarketingIcon,
+  PrivacyIcon,
+  RefundIcon,
+  TermsIcon,
+  ThirdPartyIcon,
+} from '@/components/policy-icons';
 import { getSession } from '@/lib/auth';
 
 // 세션에 따라 내용이 달라지므로 캐시하지 않는다.
@@ -12,49 +21,111 @@ export default async function MyPage() {
   if (!session) redirect('/');
 
   return (
-    <div className="pb-page flex flex-1 flex-col px-5 pt-6">
-      <header className="flex items-start gap-3">
+    <div className="pb-page flex flex-1 flex-col">
+      <PageHeader title="마이페이지" variant="close" href="/" />
+
+      {/* 프로필 */}
+      <section className="flex items-center gap-4 px-5 pb-6 pt-3">
+        <span className="flex size-15 shrink-0 items-center justify-center rounded-full bg-canvas text-ink-sub">
+          <ProfileIcon />
+        </span>
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight">마이페이지</h1>
-          <p className="mt-1 text-sm text-ink-sub">{session.name}님, 반가워요</p>
+          <p className="truncate text-base font-semibold">{session.name} 님</p>
+          <p className="mt-1 truncate text-xs text-ink-sub">{session.email}</p>
         </div>
-
-        <Link
-          href="/"
-          aria-label="닫기"
-          className="-mr-2 ml-auto flex size-11 shrink-0 items-center justify-center text-ink-sub active:text-ink"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={1.8}
-            strokeLinecap="round"
-            className="size-6"
-            aria-hidden
-          >
-            <path d="M6 6l12 12M18 6L6 18" />
-          </svg>
-        </Link>
-      </header>
-
-      <section className="mt-6">
-        <h2 className="text-sm font-semibold">계정</h2>
-        <dl className="mt-2 divide-y divide-line rounded-2xl border border-line bg-white px-4">
-          <div className="flex items-center justify-between gap-4 py-3.5">
-            <dt className="text-sm text-ink-sub">이름</dt>
-            <dd className="truncate text-sm font-medium">{session.name}</dd>
-          </div>
-          <div className="flex items-center justify-between gap-4 py-3.5">
-            <dt className="shrink-0 text-sm text-ink-sub">이메일</dt>
-            <dd className="truncate text-sm font-medium">{session.email}</dd>
-          </div>
-        </dl>
       </section>
 
-      <div className="mt-8">
+      {/* 약관/정책 */}
+      <section>
+        <h2 className="px-5 text-xs font-medium text-ink-sub">약관/정책</h2>
+        <div className="mt-3 flex flex-col">
+          <MenuLink href="/mypage/terms" label="이용약관" icon={<TermsIcon />} />
+          <MenuLink href="/mypage/privacy" label="개인정보처리방침" icon={<PrivacyIcon />} />
+          <MenuLink href="/mypage/refund" label="환불정책" icon={<RefundIcon />} />
+          <ConsentMenuRow
+            consentKey="thirdParty"
+            label="개인정보 제3자 제공 동의"
+            href="/mypage/third-party"
+            icon={<ThirdPartyIcon />}
+          />
+          <ConsentMenuRow
+            consentKey="marketing"
+            label="마케팅 정보 수신 동의"
+            href="/mypage/marketing"
+            icon={<MarketingIcon />}
+          />
+        </div>
+      </section>
+
+      <div className="mt-12 flex justify-center">
         <LogoutButton />
       </div>
+
+      {/* 사업자 정보 */}
+      <section className="mt-auto px-5 pt-12">
+        <ul className="space-y-1 text-[11px] leading-relaxed text-ink-sub">
+          <li>사업자명 : 스펙트럼</li>
+          <li>대표자 : 나규태</li>
+          <li>사업자등록번호 : 244-20-02381</li>
+          <li>고객센터 : spectrum.mesh@gmail.com</li>
+        </ul>
+      </section>
     </div>
+  );
+}
+
+function MenuLink({
+  href,
+  label,
+  icon,
+}: {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <Link href={href} className="flex min-h-12 items-center gap-2.5 px-5 active:bg-canvas">
+      <span className="flex size-4 shrink-0 items-center justify-center text-ink">{icon}</span>
+      <span className="flex-1 text-base font-medium">{label}</span>
+      <ChevronIcon />
+    </Link>
+  );
+}
+
+function ProfileIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.6}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-8"
+      aria-hidden
+    >
+      <circle cx="12" cy="8" r="3.6" />
+      <path d="M4.8 20.2a7.2 7.2 0 0 1 14.4 0" />
+    </svg>
+  );
+}
+
+
+
+
+function ChevronIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-4 shrink-0 text-ink-sub"
+      aria-hidden
+    >
+      <path d="m9 6 6 6-6 6" />
+    </svg>
   );
 }

@@ -1,26 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import {
-  ArrayMaxSize,
-  ArrayMinSize,
-  IsArray,
-  IsEnum,
-  IsInt,
-  IsOptional,
-  IsString,
-  Max,
-  MaxLength,
-  Min,
-  MinLength,
-  ValidateNested,
-} from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
 import { StickerTemplateStatus } from '../../../generated/prisma/enums';
-import { StickerSlotDto } from './sticker-slot.dto';
 
-/** 한 템플릿에 넣을 수 있는 사진 칸 수 — 앱에서 한 번에 고르게 할 현실적인 상한 */
-export const MAX_SLOTS = 12;
-
-/** 스티커 템플릿 등록 */
+/**
+ * 스티커 템플릿 등록 — 템플릿은 이미지 한 장이 전부다.
+ * 노출 순서(displayOrder)는 목록에서 드래그로 정하므로 여기서 받지 않는다 (새 템플릿은 맨 뒤).
+ */
 export class CreateStickerTemplateDto {
   @ApiProperty({ example: '폴라로이드 4컷' })
   @IsString()
@@ -47,24 +32,6 @@ export class CreateStickerTemplateDto {
   @Min(1)
   @Max(20000)
   imageHeight!: number;
-
-  @ApiProperty({
-    type: [StickerSlotDto],
-    description: '사진 칸 목록. 배열 순서가 곧 사진 번호(1번부터)다.',
-  })
-  @IsArray()
-  @ArrayMinSize(1)
-  @ArrayMaxSize(MAX_SLOTS)
-  @ValidateNested({ each: true })
-  @Type(() => StickerSlotDto)
-  slots!: StickerSlotDto[];
-
-  @ApiPropertyOptional({ description: '앱 목록 정렬 (작을수록 앞)', default: 0 })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  @Max(9999)
-  displayOrder?: number;
 
   @ApiPropertyOptional({ enum: StickerTemplateStatus, default: StickerTemplateStatus.DRAFT })
   @IsOptional()

@@ -36,14 +36,12 @@ enum ProviderType {
   GOOGLE
 }
 
-/// 챌린지 카테고리 — 누구와 함께 하는 챌린지인가
-enum ChallengeCategory {
-  /// 혼자
-  SOLO
-  /// 둘이서
-  COUPLE
-  /// 아이랑
-  KIDS
+/// 동의 항목 — 필수(이용약관·개인정보 수집·이용)와 선택(마케팅 정보 수신·제3자 제공)
+enum ConsentType {
+  TERMS
+  PRIVACY
+  MARKETING
+  THIRD_PARTY
 }
 
 /// 챌린지 노출 상태 — PUBLISHED 만 앱의 랜덤 추첨 대상이 된다
@@ -56,24 +54,45 @@ enum ChallengeStatus {
   ARCHIVED
 }
 
+/// 챌린지 그룹 상태 — 상태·일자는 그룹 단위로만 관리한다
+enum ChallengeGroupStatus {
+  /// 진행 중 — 사용자당 하나만 존재한다
+  IN_PROGRESS
+  /// 완료 (끝까지 해냄)
+  COMPLETED
+  /// 종료 (완료하지 않고 그만둠)
+  ENDED
+}
+
 model User {
-  id     String     @id @default(uuid()) @db.Uuid
+  id       String    @id @default(uuid()) @db.Uuid
   /// 필수 — SNS 프로필에서 수집
-  email  String     @unique
-  name   String
+  email    String    @unique
+  name     String
   /// 선택 — 제공자가 동의를 받지 못하면 비어 있음
-  gender Gender?
+  gender   Gender?
   /// "20~29" 처럼 제공자마다 표기가 달라 문자열로 보관
-  ageRange String?  @map("age_range") @db.VarChar(20)
+  ageRange String?   @map("age_range") @db.VarChar(20)
   birthday DateTime? @db.Date
 
   role   UserRole   @default(USER)
   status UserStatus @default(ACTIVE)
 
+  /// 동의 시각 — null 이면 미동의(또는 철회). 필수 동의는 가입 시 기록한다.
+  termsAgreedAt      DateTime? @map("terms_agreed_at")
+  privacyAgreedAt    DateTime? @map("privacy_agreed_at")
+  marketingAgreedAt  DateTime? @map("marketing_agreed_at")
+  /// 마케팅 동의 만료일 (개인정보보호법 시행령 §48조의2 — 2년마다 재확인).
+  /// 지나면 동의가 살아 있다고 보지 않고 재동의를 받아야 한다.
+  marketingExpiresAt DateTime? @map("marketing_expires_at")
+  thirdPartyAgreedAt DateTime? @map("third_party_agreed_at")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  accounts Account[]
+  accounts        Account[]
+  challengeGroups ChallengeGroup[]
+  consentLogs     ConsentLog[]
 
   // 목록/통계 조회용
   @@index([status, createdAt])
@@ -97,38 +116,147 @@ model Account {
 
   // 로그인 시 (제공자, 제공자 회원번호) 로 단건 조회 — 중복 연결 방지까지 겸함
   @@unique([providerType, providerId])
-  // FK 는 Postgres 가 자동 인덱싱하지 않음. 유저의 연결 계정 조회/삭제 성능용
-  @@index([userId])
   // 한 유저가 같은 제공자를 두 번 연결하지 못하도록
   @@unique([userId, providerType])
+  // FK 는 Postgres 가 자동 인덱싱하지 않음. 유저의 연결 계정 조회/삭제 성능용
+  @@index([userId])
   @@map("accounts")
+}
+
+/// 동의·철회 이력 — append-only. users 에는 최신 동의 시각만 남으므로
+/// 언제 무엇에 동의하고 철회했는지는 이 표로만 증빙할 수 있다.
+model ConsentLog {
+  id String @id @default(uuid()) @db.Uuid
+
+  userId String      @map("user_id") @db.Uuid
+  type   ConsentType
+  /// true = 동의, false = 철회
+  agreed Boolean
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // 사용자의 항목별 최신 이력 조회: WHERE (user_id, type) ORDER BY created_at desc
+  @@index([userId, type, createdAt])
+  @@map("consent_logs")
 }
 
 /// 관리자가 등록하는 챌린지. 앱에서는 카테고리를 고른 뒤 PUBLISHED 중 하나가 랜덤으로 뽑힌다.
 model Challenge {
   id String @id @default(uuid()) @db.Uuid
 
-  category ChallengeCategory
-  status   ChallengeStatus   @default(DRAFT)
+  categoryId String          @map("category_id") @db.Uuid
+  status     ChallengeStatus @default(DRAFT)
 
   /// 카드에 크게 보이는 한 줄 (예: "서로 좋아하는 영화 바꿔 시청하기")
-  title String @db.VarChar(120)
+  title       String  @db.VarChar(120)
   /// 상세 설명 — 어떻게 진행하는지
   description String? @db.Text
   /// 소요 시간 안내 (예: "2시간", "하루") — 자유 문구
-  duration String? @db.VarChar(40)
+  duration    String? @db.VarChar(40)
   /// 카드 상단 이모지 (예: "🎬")
-  emoji String? @db.VarChar(8)
+  emoji       String? @db.VarChar(8)
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  // 앱 랜덤 추첨: WHERE (category, status) — 선행 컬럼부터 조건에 그대로 쓰인다
-  @@index([category, status])
+  category   ChallengeCategory    @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  groupItems ChallengeGroupItem[]
+
+  // 앱 랜덤 추첨: WHERE (category_id, status) — 선행 컬럼부터 조건에 그대로 쓰인다
+  @@index([categoryId, status])
   // 어드민 목록: WHERE status + ORDER BY createdAt desc
   @@index([status, createdAt])
   @@index([createdAt])
   @@map("challenges")
+}
+
+/// 관리자가 등록하는 챌린지 카테고리 (예: 혼자 / 둘이서 / 아이랑).
+/// 앱 메인 화면에 PUBLISHED 카테고리가 display_order 순서로 나열된다.
+model ChallengeCategory {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// 화면에 보이는 이름 (예: "둘이서")
+  name        String  @db.VarChar(40)
+  /// 카드 위 이모지 (예: "💞")
+  emoji       String? @db.VarChar(8)
+  /// 한 줄 설명 (예: "늘 하던 데이트 말고")
+  description String? @db.VarChar(120)
+
+  /// 챌린지와 같은 노출 상태를 쓴다 — PUBLISHED 만 앱에 보인다
+  status       ChallengeStatus @default(PUBLISHED)
+  /// 앱 목록 정렬 — 작을수록 앞에 보인다
+  displayOrder Int             @default(0) @map("display_order")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  challenges Challenge[]
+  groups     ChallengeGroup[]
+
+  // 앱 목록: WHERE status ORDER BY display_order, name — 선행 컬럼부터 그대로 쓰인다
+  @@index([status, displayOrder, name])
+  @@index([createdAt])
+  @@map("challenge_categories")
+}
+
+/// 챌린지 그룹 — 카테고리를 고르면 하나 생성되고, 챌린지가 하나씩 최대 5개까지 담긴다.
+/// 상태·일자는 이 그룹 단위로만 기록한다 (개별 챌린지는 상태를 갖지 않는다).
+model ChallengeGroup {
+  id String @id @default(uuid()) @db.Uuid
+
+  userId     String @map("user_id") @db.Uuid
+  categoryId String @map("category_id") @db.Uuid
+
+  status ChallengeGroupStatus @default(IN_PROGRESS)
+
+  /// 시작 시각 — 카테고리를 고른 시점
+  startedAt   DateTime  @default(now()) @map("started_at")
+  /// 완료하지 않고 그만둔 시각
+  endedAt     DateTime? @map("ended_at")
+  /// 완료한 시각
+  completedAt DateTime? @map("completed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user     User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category ChallengeCategory    @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  items    ChallengeGroupItem[]
+
+  // 진행 중인 그룹 단건 조회: WHERE (user_id, status) — 선행 컬럼부터 그대로 쓰인다
+  @@index([userId, status])
+  // 사용자별 기록 목록: WHERE user_id ORDER BY created_at desc
+  @@index([userId, createdAt])
+  // FK 는 Postgres 가 자동 인덱싱하지 않는다
+  @@index([categoryId])
+  @@map("challenge_groups")
+}
+
+/// 그룹에 담긴 챌린지 한 칸 (최대 5개 — 개수 제한은 서비스에서 확인한다).
+/// position 은 그룹 안에서 몇 번째로 나왔는지를 뜻한다 (1..5).
+model ChallengeGroupItem {
+  id String @id @default(uuid()) @db.Uuid
+
+  groupId     String @map("group_id") @db.Uuid
+  challengeId String @map("challenge_id") @db.Uuid
+  position    Int
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  group     ChallengeGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  challenge Challenge      @relation(fields: [challengeId], references: [id], onDelete: Restrict)
+
+  // 같은 챌린지가 한 그룹에 두 번 들어가지 않게 (= 이미 나온 건 다시 안 뽑힘)
+  @@unique([groupId, challengeId])
+  // 순서 중복 방지 + 그룹의 챌린지를 순서대로 읽는 조회를 커버한다
+  @@unique([groupId, position])
+  // FK 는 Postgres 가 자동 인덱싱하지 않는다
+  @@index([challengeId])
+  @@map("challenge_group_items")
 }
 
 /// 스티커 템플릿 노출 상태 — PUBLISHED 만 앱 목록에 보인다
@@ -141,9 +269,9 @@ enum StickerTemplateStatus {
   ARCHIVED
 }
 
-/// 관리자가 등록하는 사진 콜라주 템플릿.
-/// 템플릿 이미지(사진 자리가 비어 있는 PNG) 위에 번호를 매긴 사진 영역을 두고,
-/// 앱에서 그 번호 순서대로 사진을 채우면 한 장의 종합 사진이 된다.
+/// 관리자가 등록하는 사진 콜라주 템플릿 — 이미지 한 장이 전부다.
+/// 사진을 어디에 어떻게 끼워 넣을지는 앱에서 사용자가 직접 정하므로
+/// 서버는 사진 자리(영역)를 알지 않는다.
 model StickerTemplate {
   id String @id @default(uuid()) @db.Uuid
 
@@ -151,18 +279,12 @@ model StickerTemplate {
   status StickerTemplateStatus @default(DRAFT)
 
   /// 템플릿 이미지 public URL
-  imageUrl String @map("image_url") @db.Text
+  imageUrl    String @map("image_url") @db.Text
   /// Storage 내부 경로 — 이미지 교체/삭제 시 이전 파일을 지우는 데 쓴다
-  imagePath String @map("image_path") @db.VarChar(500)
-  /// 원본 픽셀 크기 — 슬롯의 % 좌표를 실제 캔버스 크기로 환산할 때 쓴다
-  imageWidth  Int @map("image_width")
-  imageHeight Int @map("image_height")
-
-  /// 사진 영역 목록 `[{ x, y, width, height, rotation }, ...]`.
-  /// x/y/width/height 는 템플릿 크기 대비 % (0~100), rotation 은 도(deg).
-  /// **배열 순서가 곧 사진 번호다** (index 0 = 1번). 번호를 따로 저장하지 않으므로
-  /// 빠진 번호·중복 번호가 생길 수 없다.
-  slots Json
+  imagePath   String @map("image_path") @db.VarChar(500)
+  /// 원본 픽셀 크기 — 목록 썸네일의 비율을 잡는 데 쓴다
+  imageWidth  Int    @map("image_width")
+  imageHeight Int    @map("image_height")
 
   /// 앱 목록 정렬 — 작을수록 앞에 보인다
   displayOrder Int @default(0) @map("display_order")

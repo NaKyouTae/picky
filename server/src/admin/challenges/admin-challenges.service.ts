@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import type { ChallengeCategory, ChallengeStatus } from '../../generated/prisma/enums';
+import type { ChallengeStatus } from '../../generated/prisma/enums';
 import type { CreateChallengeDto } from './dto/create-challenge.dto';
 import type { ListAdminChallengesDto } from './dto/list-admin-challenges.dto';
 import type { UpdateChallengeDto } from './dto/update-challenge.dto';
@@ -9,7 +9,9 @@ const DEFAULT_TAKE = 20;
 
 export interface AdminChallengeRow {
   id: string;
-  category: ChallengeCategory;
+  categoryId: string;
+  /** 목록에서 카테고리 이름을 바로 그릴 수 있게 함께 내려준다 */
+  category: { id: string; name: string; emoji: string | null };
   status: ChallengeStatus;
   title: string;
   description: string | null;
@@ -28,7 +30,9 @@ export interface AdminChallengePage {
 /** 목록/단건 모두 같은 형태로 내려주기 위한 공통 select */
 const CHALLENGE_SELECT = {
   id: true,
-  category: true,
+  categoryId: true,
+  // 관계를 select 로 함께 가져와 N+1 을 만들지 않는다.
+  category: { select: { id: true, name: true, emoji: true } },
   status: true,
   title: true,
   description: true,
@@ -48,13 +52,13 @@ export class AdminChallengesService {
    */
   async list({
     q,
-    category,
+    categoryId,
     status,
     cursor,
     take = DEFAULT_TAKE,
   }: ListAdminChallengesDto): Promise<AdminChallengePage> {
     const where = {
-      ...(category ? { category } : {}),
+      ...(categoryId ? { categoryId } : {}),
       ...(status ? { status } : {}),
       // 부분 일치라 btree 인덱스를 타지 않는다. 데이터가 커지면 pg_trgm GIN 을 고려할 것.
       ...(q ? { title: { contains: q, mode: 'insensitive' as const } } : {}),

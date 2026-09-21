@@ -1,36 +1,48 @@
-/** 서버(NestJS)의 challenges 응답 타입 + 화면 표기 — 서버/클라이언트 공용 */
+/** 서버(NestJS)의 challenges / challenge-groups 응답 타입 — 서버/클라이언트 공용 */
 
-export type ChallengeCategory = 'SOLO' | 'COUPLE' | 'KIDS';
+/** 어드민에서 등록하는 챌린지 카테고리 (앱 메인에 나열된다) */
+export type ChallengeCategory = {
+  id: string;
+  name: string;
+  emoji: string | null;
+  description: string | null;
+  /** 공개 챌린지 수 — 0 이면 "준비 중" 으로 표시한다 */
+  challengeCount: number;
+};
 
 export type Challenge = {
   id: string;
-  category: ChallengeCategory;
   title: string;
   description: string | null;
   duration: string | null;
   emoji: string | null;
 };
 
-export type ChallengeCategorySummary = {
-  category: ChallengeCategory;
-  /** 공개된 챌린지 수 — 0 이면 "준비 중" 으로 표시한다 */
-  count: number;
+/** 그룹에 담긴 챌린지 한 칸 */
+export type ChallengeGroupItem = {
+  id: string;
+  /** 그룹 안에서 몇 번째로 나왔는지 (1..5) */
+  position: number;
+  createdAt: string;
+  challenge: Challenge;
 };
 
-/** 화면에 카테고리를 그리는 순서와 문구 */
-export const CATEGORY_META: {
-  category: ChallengeCategory;
-  label: string;
-  emoji: string;
-  hint: string;
-}[] = [
-  { category: 'SOLO', label: '혼자', emoji: '🙂', hint: '나를 위한 시간' },
-  { category: 'COUPLE', label: '둘이서', emoji: '💞', hint: '늘 하던 데이트 말고' },
-  { category: 'KIDS', label: '아이랑', emoji: '🧸', hint: '아이와 함께' },
-];
+/** 상태·일자는 그룹 단위로만 관리한다 */
+export type ChallengeGroupStatus = 'IN_PROGRESS' | 'COMPLETED' | 'ENDED';
 
-export const CATEGORY_LABELS: Record<ChallengeCategory, string> = {
-  SOLO: '혼자',
-  COUPLE: '둘이서',
-  KIDS: '아이랑',
+export type ChallengeGroup = {
+  id: string;
+  status: ChallengeGroupStatus;
+  /** JSON 직렬화를 거치므로 ISO 문자열로 도착한다 */
+  startedAt: string;
+  endedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  category: { id: string; name: string; emoji: string | null; description: string | null };
+  /** position 오름차순 */
+  items: ChallengeGroupItem[];
 };
+
+/** 한 그룹에 담을 수 있는 챌린지 수 — 서버와 맞춘다 */
+export const MAX_CHALLENGES_PER_GROUP = 5;

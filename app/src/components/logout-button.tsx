@@ -21,7 +21,7 @@ export function LogoutButton() {
       type="button"
       onClick={handleClick}
       disabled={pending}
-      className="h-12 w-full rounded-xl border border-line text-base font-semibold text-ink-sub transition-colors active:bg-canvas disabled:opacity-60"
+      className="flex h-11 items-center px-4 text-xs text-ink-sub underline underline-offset-4 disabled:opacity-60"
     >
       {pending ? '로그아웃 중…' : '로그아웃'}
     </button>

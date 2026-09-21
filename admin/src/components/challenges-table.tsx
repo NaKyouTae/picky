@@ -5,14 +5,12 @@ import { useEffect, useState } from 'react';
 import { ChallengeForm } from '@/components/challenge-form';
 import { Modal } from '@/components/modal';
 import {
-  CATEGORIES,
-  CATEGORY_LABELS,
   CHALLENGE_PAGE_SIZE,
   CHALLENGE_STATUS_LABELS,
   CHALLENGE_STATUS_STYLES,
   STATUSES,
+  type AdminChallengeCategory,
   type AdminChallengePage,
-  type ChallengeCategory,
   type ChallengeStatus,
 } from '@/lib/challenges';
 import { formatDateTime } from '@/lib/users';
@@ -22,7 +20,7 @@ const COLUMN_COUNT = 5;
 /** 조회 조건 — 하나라도 바뀌면 커서를 버리고 첫 페이지부터 다시 본다 */
 type Filters = {
   query: string;
-  category: ChallengeCategory | '';
+  categoryId: string;
   status: ChallengeStatus | '';
 };
 
@@ -33,9 +31,9 @@ type LoadedPage = {
   error: string | null;
 };
 
-const EMPTY_FILTERS: Filters = { query: '', category: '', status: '' };
+const EMPTY_FILTERS: Filters = { query: '', categoryId: '', status: '' };
 
-export function ChallengesTable() {
+export function ChallengesTable({ categories }: { categories: AdminChallengeCategory[] }) {
   const [input, setInput] = useState('');
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   /** 지나온 페이지의 커서 — 첫 페이지는 커서가 없으므로 null */
@@ -56,7 +54,7 @@ export function ChallengesTable() {
 
     const params = new URLSearchParams({ take: String(CHALLENGE_PAGE_SIZE) });
     if (current.query) params.set('q', current.query);
-    if (current.category) params.set('category', current.category);
+    if (current.categoryId) params.set('categoryId', current.categoryId);
     if (current.status) params.set('status', current.status);
     if (currentCursor) params.set('cursor', currentCursor);
 
@@ -93,7 +91,7 @@ export function ChallengesTable() {
   const pageNumber = cursors.length;
   const hasPrev = pageNumber > 1;
   const hasNext = Boolean(page?.nextCursor);
-  const filtered = Boolean(filters.query || filters.category || filters.status);
+  const filtered = Boolean(filters.query || filters.categoryId || filters.status);
 
   return (
     <div>
@@ -122,17 +120,16 @@ export function ChallengesTable() {
         </form>
 
         <select
-          value={filters.category}
-          onChange={(event) =>
-            applyFilters({ ...filters, category: event.target.value as ChallengeCategory | '' })
-          }
+          value={filters.categoryId}
+          onChange={(event) => applyFilters({ ...filters, categoryId: event.target.value })}
           aria-label="카테고리 필터"
           className="h-10 rounded-lg border border-line bg-white px-3 text-sm outline-none focus:border-brand-500"
         >
           <option value="">전체 카테고리</option>
-          {CATEGORIES.map((category) => (
-            <option key={category} value={category}>
-              {CATEGORY_LABELS[category]}
+          {categories.map((category) => (
+            <option key={category.id} value={category.id}>
+              {category.emoji ? `${category.emoji} ` : ''}
+              {category.name}
             </option>
           ))}
         </select>
@@ -225,7 +222,9 @@ export function ChallengesTable() {
               !error &&
               items.map((challenge) => (
                 <tr key={challenge.id} className="border-b border-line last:border-0">
-                  <td className="px-4 py-3 text-ink-sub">{CATEGORY_LABELS[challenge.category]}</td>
+                  <td className="px-4 py-3 text-ink-sub">
+                    {challenge.category.emoji} {challenge.category.name}
+                  </td>
                   <td className="px-4 py-3">
                     <Link
                       href={`/challenges/${challenge.id}`}
@@ -274,6 +273,7 @@ export function ChallengesTable() {
 
       <Modal open={creating} onClose={() => setCreating(false)} title="챌린지 등록">
         <ChallengeForm
+          categories={categories}
           framed={false}
           onDone={() => {
             setCreating(false);

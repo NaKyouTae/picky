@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   NotFoundException,
+  Patch,
   Post,
   Req,
   UseGuards,
@@ -14,6 +15,7 @@ import { JwtAuthGuard, type AuthedRequest } from '../common/guards/jwt-auth.guar
 import { AuthService } from './auth.service';
 import { GoogleCallbackDto } from './dto/google-callback.dto';
 import { KakaoCallbackDto } from './dto/kakao-callback.dto';
+import { UpdateConsentsDto } from './dto/update-consents.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -54,5 +56,21 @@ export class AuthController {
     const user = await this.auth.getMe(req.user!.sub);
     if (!user) throw new NotFoundException('사용자를 찾을 수 없습니다.');
     return user;
+  }
+
+  @Get('consents')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '약관·개인정보 동의 상태' })
+  getConsents(@Req() req: AuthedRequest) {
+    return this.auth.getConsents(req.user!.sub);
+  }
+
+  @Patch('consents')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '동의 변경 — 보낸 항목만 바뀐다' })
+  updateConsents(@Req() req: AuthedRequest, @Body() dto: UpdateConsentsDto) {
+    return this.auth.updateConsents(req.user!.sub, dto);
   }
 }

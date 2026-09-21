@@ -1,19 +1,18 @@
 'use client';
 
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
-import { StickerSlotEditor } from '@/components/sticker-slot-editor';
 import {
   STICKER_STATUSES,
   STICKER_STATUS_LABELS,
   type AdminStickerTemplate,
   type StickerImageUpload,
-  type StickerSlot,
   type StickerTemplateStatus,
 } from '@/lib/sticker-templates';
 import { cn } from '@/lib/utils';
 
-/** 업로드가 끝난 템플릿 이미지 — 경로는 저장에, URL·크기는 에디터에 쓴다 */
+/** 업로드가 끝난 템플릿 이미지 — 경로는 저장에, URL·크기는 미리보기에 쓴다 */
 type TemplateImage = {
   path: string;
   url: string;
@@ -26,9 +25,10 @@ const FIELD =
   'mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none focus:border-brand-500';
 
 /**
- * 스티커 템플릿 등록/수정 폼.
- * template 이 있으면 수정 모드(PATCH + 삭제 버튼), 없으면 등록 모드(POST).
+ * 스티커 템플릿 등록/수정 폼 — 템플릿은 이미지 한 장이 전부다.
+ * 사진을 어디에 끼워 넣을지는 앱에서 사용자가 정하므로 여기서 영역을 지정하지 않는다.
  *
+ * template 이 있으면 수정 모드(PATCH + 삭제 버튼), 없으면 등록 모드(POST).
  * 저장/취소 후 동작은 호출하는 쪽이 정한다 — 모달에서는 닫고 목록을 갱신하고,
  * 콜백이 없으면(페이지로 쓸 때) 목록 화면으로 이동한다.
  */
@@ -49,8 +49,6 @@ export function StickerTemplateForm({
 
   const [title, setTitle] = useState(template?.title ?? '');
   const [status, setStatus] = useState<StickerTemplateStatus>(template?.status ?? 'PUBLISHED');
-  const [displayOrder, setDisplayOrder] = useState(String(template?.displayOrder ?? 0));
-  const [slots, setSlots] = useState<StickerSlot[]>(template?.slots ?? []);
   const [image, setImage] = useState<TemplateImage | null>(
     template
       ? {
@@ -103,7 +101,6 @@ export function StickerTemplateForm({
 
       const uploaded = (await res.json()) as StickerImageUpload;
       setImage({ ...uploaded, ...size });
-      // 이미지를 바꾸면 칸 좌표는 % 라 그대로 쓸 수 있으므로 slots 는 건드리지 않는다.
     } catch (e) {
       setError(e instanceof Error ? e.message : '이미지 업로드에 실패했습니다.');
     } finally {
@@ -119,10 +116,6 @@ export function StickerTemplateForm({
       setError('템플릿 이미지를 올려 주세요.');
       return;
     }
-    if (slots.length === 0) {
-      setError('사진이 들어갈 칸을 최소 한 개 이상 지정해 주세요.');
-      return;
-    }
 
     setPending('save');
     setError(null);
@@ -133,8 +126,6 @@ export function StickerTemplateForm({
       imagePath: image.path,
       imageWidth: image.width,
       imageHeight: image.height,
-      slots,
-      displayOrder: Number(displayOrder) || 0,
     };
 
     try {
@@ -175,13 +166,16 @@ export function StickerTemplateForm({
   }
 
   return (
+    // 좌: 입력 1열 / 우: 미리보기. 그리드 항목은 기본이 stretch 라 우측 미리보기가
+    // 좌측 입력 높이만큼 늘어난다(= 세로로 길게).
     <form
       onSubmit={handleSubmit}
       className={cn(
-        framed ? 'max-w-3xl space-y-6 rounded-xl border border-line bg-white p-6' : 'space-y-6',
+        'grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-6',
+        framed && 'max-w-4xl rounded-xl border border-line bg-white p-6',
       )}
     >
-      <div className="grid grid-cols-[1fr_9rem_7rem] gap-4">
+      <div className="space-y-5">
         <div>
           <label htmlFor="title" className={LABEL}>
             제목
@@ -214,104 +208,89 @@ export function StickerTemplateForm({
               </option>
             ))}
           </select>
+          <p className="mt-1 text-xs text-ink-sub">
+            공개 상태만 앱 스티커 시트에 보입니다. 노출 순서는 목록에서 드래그로 바꿉니다.
+          </p>
         </div>
 
         <div>
-          <label htmlFor="displayOrder" className={LABEL}>
-            정렬
-          </label>
-          <input
-            id="displayOrder"
-            type="number"
-            min={0}
-            max={9999}
-            value={displayOrder}
-            onChange={(event) => setDisplayOrder(event.target.value)}
-            className={FIELD}
-          />
-        </div>
-      </div>
-      <p className="-mt-3 text-xs text-ink-sub">
-        공개 상태만 앱 스티커 탭에 보입니다. 정렬 값이 작을수록 앞에 나옵니다.
-      </p>
-
-      <div>
-        <span className={LABEL}>템플릿 이미지</span>
-        <div className="mt-1 flex items-center gap-3">
+          <span className={LABEL}>템플릿 이미지</span>
           <input
             ref={fileRef}
             type="file"
             accept="image/png,image/jpeg,image/webp"
             onChange={(event) => void handleFile(event.target.files?.[0])}
             disabled={busy}
-            className="text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-ink file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:opacity-90"
+            className="mt-1 w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-ink file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:opacity-90"
           />
-          {uploading && <span className="text-sm text-ink-sub">올리는 중…</span>}
-          {image && !uploading && (
-            <span className="text-sm text-ink-sub">
-              {image.width} × {image.height}
-            </span>
-          )}
+          <p className="mt-1 text-xs text-ink-sub">PNG · JPG · WebP, 5MB 이하.</p>
         </div>
-        <p className="mt-1 text-xs text-ink-sub">
-          PNG · JPG · WebP, 5MB 이하. 사진 자리가 비어 있는(또는 단색으로 채워진) 이미지를 올린 뒤
-          아래에서 그 자리를 지정하면 됩니다.
-        </p>
-      </div>
 
-      {image ? (
-        <div>
-          <span className={LABEL}>사진 칸</span>
-          <div className="mt-2">
-            <StickerSlotEditor
-              imageUrl={image.url}
-              imageWidth={image.width}
-              imageHeight={image.height}
-              slots={slots}
-              onChange={setSlots}
-            />
-          </div>
-        </div>
-      ) : (
-        <p className="rounded-lg border border-dashed border-line px-4 py-10 text-center text-sm text-ink-sub">
-          템플릿 이미지를 올리면 사진 칸을 지정할 수 있습니다.
-        </p>
-      )}
+        {error && <p className="whitespace-pre-line text-sm text-brand-600">{error}</p>}
 
-      {error && <p className="whitespace-pre-line text-sm text-brand-600">{error}</p>}
-
-      <div className="flex items-center gap-2">
-        <button
-          type="submit"
-          disabled={busy}
-          className="h-10 rounded-lg bg-brand-500 px-5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
-        >
-          {pending === 'save' ? '저장 중…' : editing ? '수정' : '등록'}
-        </button>
-        <button
-          type="button"
-          onClick={cancel}
-          disabled={busy}
-          className="h-10 rounded-lg border border-line bg-white px-5 text-sm text-ink-sub hover:bg-gray-100 disabled:opacity-60"
-        >
-          취소
-        </button>
-        {editing && (
+        <div className="flex items-center gap-2">
+          <button
+            type="submit"
+            disabled={busy}
+            className="h-10 rounded-lg bg-brand-500 px-5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
+          >
+            {pending === 'save' ? '저장 중…' : editing ? '수정' : '등록'}
+          </button>
           <button
             type="button"
-            onClick={handleDelete}
+            onClick={cancel}
             disabled={busy}
-            className="ml-auto h-10 rounded-lg border border-line bg-white px-5 text-sm text-brand-600 hover:bg-brand-500/5 disabled:opacity-60"
+            className="h-10 rounded-lg border border-line bg-white px-5 text-sm text-ink-sub hover:bg-gray-100 disabled:opacity-60"
           >
-            {pending === 'delete' ? '삭제 중…' : '삭제'}
+            취소
           </button>
-        )}
+          {editing && (
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={busy}
+              className="ml-auto h-10 rounded-lg border border-line bg-white px-5 text-sm text-brand-600 hover:bg-brand-500/5 disabled:opacity-60"
+            >
+              {pending === 'delete' ? '삭제 중…' : '삭제'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="flex flex-col">
+        <span className={LABEL}>미리보기</span>
+
+        {/* flex-1 로 좌측 입력 높이를 그대로 채운다. 투명 PNG 가 흰 배경에 묻히지
+            않도록 체커보드를 깔고, 이미지는 비율을 지켜 안쪽에 맞춘다. */}
+        <div className="relative mt-1 min-h-72 flex-1 overflow-hidden rounded-xl border border-line bg-[repeating-conic-gradient(#f3f4f6_0_25%,#ffffff_0_50%)] bg-[length:16px_16px]">
+          {image && (
+            <Image
+              src={image.url}
+              alt="템플릿 미리보기"
+              fill
+              sizes="448px"
+              unoptimized
+              className="object-contain p-2"
+            />
+          )}
+
+          {!image && (
+            <p className="absolute inset-0 flex items-center justify-center px-4 text-center text-sm text-ink-sub">
+              {uploading ? '올리는 중…' : '이미지를 올리면 여기에 보입니다.'}
+            </p>
+          )}
+        </div>
+
+        {/* 높이를 늘 차지하게 두어 이미지를 바꿀 때 미리보기가 위아래로 움직이지 않게 한다 */}
+        <p className="mt-2 h-4 text-center text-xs text-ink-sub">
+          {image && !uploading && `${image.width} × ${image.height}`}
+        </p>
       </div>
     </form>
   );
 }
 
-/** 업로드 전에 원본 픽셀 크기를 읽는다 — 미리보기 비율과 합성 캔버스 크기의 기준이 된다 */
+/** 업로드 전에 원본 픽셀 크기를 읽는다 — 목록·미리보기 비율의 기준이 된다 */
 function readImageSize(file: File): Promise<{ width: number; height: number }> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);

@@ -1,16 +1,22 @@
 /** 서버(NestJS)의 admin-challenges 응답 타입 — 브라우저/서버 컴포넌트 공용 */
 
-export type ChallengeCategory = 'SOLO' | 'COUPLE' | 'KIDS';
 export type ChallengeStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
 
-/** 필터·폼에서 카테고리를 그리는 순서 */
-export const CATEGORIES: ChallengeCategory[] = ['SOLO', 'COUPLE', 'KIDS'];
 export const STATUSES: ChallengeStatus[] = ['DRAFT', 'PUBLISHED', 'ARCHIVED'];
 
-export const CATEGORY_LABELS: Record<ChallengeCategory, string> = {
-  SOLO: '혼자',
-  COUPLE: '둘이서',
-  KIDS: '아이랑',
+/** 어드민에서 등록·관리하는 챌린지 카테고리 */
+export type AdminChallengeCategory = {
+  id: string;
+  name: string;
+  emoji: string | null;
+  description: string | null;
+  status: ChallengeStatus;
+  displayOrder: number;
+  /** JSON 직렬화를 거치므로 ISO 문자열로 도착한다 */
+  createdAt: string;
+  updatedAt: string;
+  /** 연결 수 — 0 일 때만 삭제할 수 있다 */
+  _count: { challenges: number; groups: number };
 };
 
 export const CHALLENGE_STATUS_LABELS: Record<ChallengeStatus, string> = {
@@ -27,7 +33,9 @@ export const CHALLENGE_STATUS_STYLES: Record<ChallengeStatus, string> = {
 
 export type AdminChallenge = {
   id: string;
-  category: ChallengeCategory;
+  categoryId: string;
+  /** 목록에서 이름을 바로 그릴 수 있게 서버가 함께 내려준다 */
+  category: { id: string; name: string; emoji: string | null };
   status: ChallengeStatus;
   title: string;
   description: string | null;

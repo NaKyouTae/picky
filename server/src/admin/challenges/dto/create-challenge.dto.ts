@@ -1,12 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
-import { ChallengeCategory, ChallengeStatus } from '../../../generated/prisma/enums';
+import { IsEnum, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
+import { ChallengeStatus } from '../../../generated/prisma/enums';
 
 /** 챌린지 등록 */
 export class CreateChallengeDto {
-  @ApiProperty({ enum: ChallengeCategory, description: '혼자 / 둘이서 / 아이랑' })
-  @IsEnum(ChallengeCategory)
-  category!: ChallengeCategory;
+  @ApiProperty({ description: '챌린지 카테고리 id (어드민에서 등록한 카테고리)' })
+  @IsUUID()
+  categoryId!: string;
 
   @ApiProperty({ example: '서로 좋아하는 영화 바꿔 시청하기' })
   @IsString()

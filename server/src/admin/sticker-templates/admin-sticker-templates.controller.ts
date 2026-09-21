@@ -24,6 +24,7 @@ import {
 } from './admin-sticker-templates.service';
 import { CreateStickerTemplateDto } from './dto/create-sticker-template.dto';
 import { ListAdminStickerTemplatesDto } from './dto/list-admin-sticker-templates.dto';
+import { ReorderStickerTemplatesDto } from './dto/reorder-sticker-templates.dto';
 import { UpdateStickerTemplateDto } from './dto/update-sticker-template.dto';
 
 @ApiTags('admin-sticker-templates')
@@ -65,6 +66,16 @@ export class AdminStickerTemplatesController {
   @ApiOperation({ summary: '스티커 템플릿 등록' })
   create(@Body() dto: CreateStickerTemplateDto) {
     return this.templates.create(dto);
+  }
+
+  /**
+   * `:id` 보다 먼저 선언해야 한다 — 뒤에 두면 ParseUUIDPipe 가 'order' 를 id 로 읽고 400 을 낸다.
+   */
+  @Patch('order')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: '목록 순서 변경 (배열 순서대로 다시 매김)' })
+  reorder(@Body() dto: ReorderStickerTemplatesDto) {
+    return this.templates.reorder(dto);
   }
 
   @Patch(':id')

@@ -1,10 +1,7 @@
 import Link from 'next/link';
-import { ChallengeStartButton } from '@/components/challenge-start-button';
-import { StickerSheetButton } from '@/components/sticker-sheet-button';
-import { api } from '@/lib/api';
+import { CategoryList } from '@/components/category-list';
+import { getActiveGroup, getCategories } from '@/lib/challenge-groups';
 import { getSession } from '@/lib/auth';
-import type { ChallengeCategorySummary } from '@/lib/challenges';
-import type { StickerTemplate } from '@/lib/sticker-templates';
 
 const LOGIN_ERRORS: Record<string, string> = {
   cancelled: '로그인을 취소했습니다.',
@@ -19,16 +16,11 @@ export default async function HomePage({
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
-  // 스티커와 카테고리 개수는 시트·모달을 열자마자 보여야 하므로 미리 받아 둔다.
-  // 관리자가 공개하면 바로 반영돼야 해서 캐시하지 않는다.
-  const [session, templates, summary, { error }] = await Promise.all([
+  // 어드민이 카테고리를 등록/공개하면 바로 반영돼야 해서 캐시하지 않는다.
+  const [session, categories, activeGroup, { error }] = await Promise.all([
     getSession(),
-    api
-      .get<StickerTemplate[]>('/sticker-templates', { cache: 'no-store' })
-      .catch(() => [] as StickerTemplate[]),
-    api
-      .get<ChallengeCategorySummary[]>('/challenges/categories', { cache: 'no-store' })
-      .catch(() => [] as ChallengeCategorySummary[]),
+    getCategories(),
+    getActiveGroup(),
     searchParams,
   ]);
 
@@ -37,7 +29,9 @@ export default async function HomePage({
       <header className="flex items-start gap-3">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight">Picky</h1>
-          <p className="mt-1 text-sm text-ink-sub">순간을 고르는 가장 쉬운 방법</p>
+          <p className="mt-1 text-sm text-ink-sub">
+            무엇을 할지 고르면 챌린지를 하나씩 뽑아 드려요.
+          </p>
         </div>
 
         {/* 계정 정보는 마이페이지에서 보여준다 */}
@@ -58,10 +52,13 @@ export default async function HomePage({
         </p>
       )}
 
-      {/* 두 버튼은 디바이스 세로 기준 가운데에 온다 (헤더 아래 남은 공간의 중앙) */}
-      <div className="flex flex-1 flex-col justify-center gap-3 py-8">
-        <ChallengeStartButton loggedIn={Boolean(session)} summary={summary} />
-        <StickerSheetButton templates={templates} />
+      {/* 카테고리는 디바이스 세로 기준 가운데에 온다 */}
+      <div className="flex flex-1 flex-col justify-center py-8">
+        <CategoryList
+          categories={categories}
+          loggedIn={Boolean(session)}
+          activeGroup={activeGroup}
+        />
       </div>
     </div>
   );

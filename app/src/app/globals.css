@@ -42,6 +42,47 @@
   /* 가운데 모달 */
   --animate-pop-in: pop-in 0.2s cubic-bezier(0.32, 0.72, 0, 1);
   --animate-pop-out: pop-out 0.15s ease-in forwards;
+
+  /* 챌린지 뽑기 로딩 — 두구두구 */
+  --animate-drumroll: drumroll 0.42s ease-in-out infinite;
+  --animate-drum-shadow: drum-shadow 0.42s ease-in-out infinite;
+  --animate-drum-dot: drum-dot 0.9s ease-in-out infinite;
+}
+
+/* 좌우로 흔들리며 통통 튀는 움직임 */
+@keyframes drumroll {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-9deg) scale(1);
+  }
+  50% {
+    transform: translateY(-14px) rotate(9deg) scale(1.06);
+  }
+}
+
+/* 튀어오를 때 그림자가 작아져 높이가 느껴지게 한다 */
+@keyframes drum-shadow {
+  0%,
+  100% {
+    transform: scaleX(1);
+    opacity: 0.18;
+  }
+  50% {
+    transform: scaleX(0.6);
+    opacity: 0.08;
+  }
+}
+
+@keyframes drum-dot {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @keyframes pop-in {

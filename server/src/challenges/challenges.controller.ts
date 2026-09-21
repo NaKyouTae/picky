@@ -9,9 +9,9 @@ export class ChallengesController {
   constructor(private readonly challenges: ChallengesService) {}
 
   @Get('categories')
-  @ApiOperation({ summary: '카테고리별 공개 챌린지 수' })
+  @ApiOperation({ summary: '앱 메인에 나열할 카테고리 (공개 챌린지 수 포함)' })
   categories() {
-    return this.challenges.categorySummary();
+    return this.challenges.categories();
   }
 
   @Get('random')
