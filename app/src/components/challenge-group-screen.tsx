@@ -18,8 +18,14 @@ const DRAWS: Pending[] = ['REDRAW', 'COMPLETE'];
  * - **완료하기**: 현재 챌린지를 완료하고 다음 칸을 새로 뽑는다. 5번째를 완료하면 그룹이 끝난다.
  * - **그만두기**: 완료하지 않고 그룹을 닫는다.
  */
-export function ChallengeGroupScreen({ group }: { group: ChallengeGroup }) {
+export function ChallengeGroupScreen({ group: initialGroup }: { group: ChallengeGroup }) {
   const router = useRouter();
+  /**
+   * 화면에 그리는 그룹.
+   * 다시 뽑기·완료하기 응답에 갱신된 그룹이 그대로 들어 있어 그것으로 바로 바꾼다.
+   * `router.refresh()` 의 서버 재렌더를 기다리면 그 사이 이전 챌린지가 보이기 때문이다.
+   */
+  const [group, setGroup] = useState(initialGroup);
   const [pending, setPending] = useState<Pending>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,8 +58,9 @@ export function ChallengeGroupScreen({ group }: { group: ChallengeGroup }) {
         return;
       }
 
-      // 새로 받아오는 동안 두구두구를 유지해 이전 챌린지가 깜빡이지 않게 한다.
-      router.refresh();
+      // 두구두구가 덮고 있는 동안 새 내용으로 먼저 바꿔 두고, 그다음 오버레이를 걷는다.
+      // 그래서 오버레이가 사라지는 순간 이미 새 챌린지가 그려져 있다.
+      setGroup(next);
       if (minimumDraw) await minimumDraw;
       setPending(null);
     } catch {
