@@ -1,13 +1,17 @@
 -- 챌린지 초기 콘텐츠 (카테고리별 10개, 모두 공개 상태)
 -- 같은 제목이 이미 있으면 건너뛰므로 여러 번 실행해도 안전합니다.
 -- 실행: pnpm --filter @picky/server db:seed
+--
+-- 카테고리는 enum 이 아니라 challenge_categories 테이블이다.
+-- 아래 VALUES 의 SOLO/COUPLE/KIDS 는 카테고리 **이름**으로 옮겨 id 를 찾는다.
+-- 이름이 없으면 그 행은 삽입되지 않는다 (JOIN 이 걸러낸다).
 
 INSERT INTO "challenges" (
-  "id", "category", "status", "title", "description", "duration", "emoji", "created_at", "updated_at"
+  "id", "category_id", "status", "title", "description", "duration", "emoji", "created_at", "updated_at"
 )
 SELECT
   gen_random_uuid(),
-  v.category::"ChallengeCategory",
+  cat.id,
   'PUBLISHED'::"ChallengeStatus",
   v.title,
   v.description,
@@ -53,6 +57,13 @@ FROM (
     ('KIDS', '버스 타고 처음 가보는 놀이터 가기', '한 번도 안 가본 동네 놀이터를 목적지로 정하고 버스를 탑니다.', '반나절', '🚌'),
     ('KIDS', '카메라를 아이에게 맡기기', '오늘 사진은 전부 아이가 찍습니다. 아이 눈높이에서 본 하루를 나중에 같이 보세요.', '하루', '📸')
 ) AS v(category, title, description, duration, emoji)
+-- SOLO → '혼자', COUPLE → '둘이서', KIDS → '아이랑'
+JOIN "challenge_categories" cat
+  ON cat.name = CASE v.category
+       WHEN 'SOLO'   THEN '혼자'
+       WHEN 'COUPLE' THEN '둘이서'
+       WHEN 'KIDS'   THEN '아이랑'
+     END
 WHERE NOT EXISTS (
   SELECT 1 FROM "challenges" c WHERE c.title = v.title
 );
