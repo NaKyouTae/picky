@@ -235,14 +235,20 @@ model ChallengeGroup {
   @@map("challenge_groups")
 }
 
-/// 그룹에 담긴 챌린지 한 칸 (최대 5개 — 개수 제한은 서비스에서 확인한다).
-/// position 은 그룹 안에서 몇 번째로 나왔는지를 뜻한다 (1..5).
+/// 그룹의 챌린지 한 칸 (최대 5칸 — 개수 제한은 서비스에서 확인한다).
+///
+/// 칸은 완료할 때만 늘어난다. '다시 뽑기' 는 새 칸을 만들지 않고 현재 칸의 challengeId 만 바꾼다.
 model ChallengeGroupItem {
   id String @id @default(uuid()) @db.Uuid
 
-  groupId     String @map("group_id") @db.Uuid
+  groupId String @map("group_id") @db.Uuid
+  /// 다시 뽑기로 교체될 수 있다 — position 은 그대로 두고 이 값만 바뀐다
   challengeId String @map("challenge_id") @db.Uuid
-  position    Int
+  /// 그룹 안 몇 번째 칸인지 (1..5)
+  position Int
+  /// 이 칸을 완료한 시각 — null 이면 아직 진행 중인 칸이다.
+  /// 완료하면 다음 칸이 새로 뽑히고, 마지막 칸을 완료하면 그룹이 완료된다.
+  completedAt DateTime? @map("completed_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

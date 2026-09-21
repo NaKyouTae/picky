@@ -12,7 +12,6 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard, type AuthedRequest } from '../common/guards/jwt-auth.guard';
 import { ChallengeGroupsService } from './challenge-groups.service';
-import { FinishChallengeGroupDto } from './dto/finish-challenge-group.dto';
 import { StartChallengeGroupDto } from './dto/start-challenge-group.dto';
 
 @ApiTags('challenge-groups')
@@ -34,20 +33,22 @@ export class ChallengeGroupsController {
     return this.groups.start(req.user!.sub, dto);
   }
 
-  // ':id' 보다 먼저 선언해야 이 경로가 먼저 매칭된다.
-  @Patch(':id/draw')
-  @ApiOperation({ summary: '다음 챌린지 뽑아 그룹에 담기 (최대 5개, 담긴 건 다시 안 나옴)' })
-  draw(@Req() req: AuthedRequest, @Param('id', ParseUUIDPipe) id: string) {
-    return this.groups.drawNext(req.user!.sub, id);
+  // ':id' 보다 먼저 선언해야 이 경로들이 먼저 매칭된다.
+  @Patch(':id/redraw')
+  @ApiOperation({ summary: '다시 뽑기 — 현재 칸의 챌린지만 교체 (번호는 그대로)' })
+  redraw(@Req() req: AuthedRequest, @Param('id', ParseUUIDPipe) id: string) {
+    return this.groups.redraw(req.user!.sub, id);
   }
 
-  @Patch(':id')
-  @ApiOperation({ summary: '진행 중인 그룹을 완료하거나 그만두기' })
-  finish(
-    @Req() req: AuthedRequest,
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: FinishChallengeGroupDto,
-  ) {
-    return this.groups.finish(req.user!.sub, id, dto);
+  @Patch(':id/complete')
+  @ApiOperation({ summary: '현재 챌린지 완료 → 다음 칸 뽑기 (5번째면 그룹 완료)' })
+  complete(@Req() req: AuthedRequest, @Param('id', ParseUUIDPipe) id: string) {
+    return this.groups.completeCurrent(req.user!.sub, id);
+  }
+
+  @Patch(':id/end')
+  @ApiOperation({ summary: '그만두기 — 완료하지 않고 그룹을 닫는다' })
+  end(@Req() req: AuthedRequest, @Param('id', ParseUUIDPipe) id: string) {
+    return this.groups.end(req.user!.sub, id);
   }
 }

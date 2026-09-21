@@ -6,60 +6,61 @@ import { useState } from 'react';
 import { ChallengeDrawOverlay, startMinimumDraw } from '@/components/challenge-draw-overlay';
 import { MAX_CHALLENGES_PER_GROUP, type ChallengeGroup } from '@/lib/challenges';
 
-type Pending = 'DRAW' | 'COMPLETED' | 'ENDED' | null;
+type Pending = 'REDRAW' | 'COMPLETE' | 'END' | null;
+
+/** 뽑기가 일어나는 동작 — 두구두구 화면을 덮는다 */
+const DRAWS: Pending[] = ['REDRAW', 'COMPLETE'];
 
 /**
  * 진행 중인 챌린지 그룹 화면.
  *
- * 그룹에는 챌린지가 하나씩 최대 5개까지 담긴다. 가장 최근에 담긴 것이 지금 할 챌린지이고,
- * '다시 뽑기' 는 그룹에 없는 챌린지 중에서 하나를 더 담는다 (담긴 건 다시 나오지 않는다).
- * 상태·일자는 그룹 단위로만 기록되므로 완료/그만두기는 그룹 전체에 적용된다.
+ * - **다시 뽑기**: 현재 칸의 챌린지만 교체한다 (칸 번호는 그대로).
+ * - **완료하기**: 현재 챌린지를 완료하고 다음 칸을 새로 뽑는다. 5번째를 완료하면 그룹이 끝난다.
+ * - **그만두기**: 완료하지 않고 그룹을 닫는다.
  */
 export function ChallengeGroupScreen({ group }: { group: ChallengeGroup }) {
   const router = useRouter();
   const [pending, setPending] = useState<Pending>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const current = group.items.at(-1);
-  const drawn = group.items.length;
-  const full = drawn >= MAX_CHALLENGES_PER_GROUP;
+  // 아직 완료하지 않은 칸이 지금 할 챌린지다.
+  const current = group.items.find((item) => item.completedAt === null);
+  const completed = group.items.filter((item) => item.completedAt !== null);
 
   async function call(action: Exclude<Pending, null>) {
     setPending(action);
     setError(null);
 
-    const isDraw = action === 'DRAW';
-    // 다시 뽑기도 카테고리 선택과 같은 두구두구 화면을 쓴다.
-    const minimumDraw = isDraw ? startMinimumDraw() : null;
-    const url = isDraw
-      ? `/api/challenge-groups/${group.id}/draw`
-      : `/api/challenge-groups/${group.id}`;
+    // 다시 뽑기와 완료하기는 둘 다 새 챌린지를 뽑으므로 같은 두구두구 화면을 쓴다.
+    const minimumDraw = DRAWS.includes(action) ? startMinimumDraw() : null;
+    const path = { REDRAW: 'redraw', COMPLETE: 'complete', END: 'end' }[action];
 
     try {
-      const res = await fetch(url, {
+      const res = await fetch(`/api/challenge-groups/${group.id}/${path}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: isDraw ? undefined : JSON.stringify({ status: action }),
         cache: 'no-store',
       });
       if (!res.ok) throw new Error();
 
-      if (isDraw) {
-        // 서버가 그룹에 챌린지를 하나 더 담았다. 새로 받아오는 동안 두구두구를 유지해
-        // 이전 챌린지가 잠깐 다시 보이는 일이 없게 한다.
-        router.refresh();
+      const next = (await res.json()) as ChallengeGroup;
+
+      // 그룹이 끝났으면(5번째 완료 / 그만두기) 홈으로 돌아간다.
+      if (next.status !== 'IN_PROGRESS') {
         if (minimumDraw) await minimumDraw;
-        setPending(null);
+        router.replace('/');
+        router.refresh();
         return;
       }
 
-      router.replace('/');
+      // 새로 받아오는 동안 두구두구를 유지해 이전 챌린지가 깜빡이지 않게 한다.
       router.refresh();
+      if (minimumDraw) await minimumDraw;
+      setPending(null);
     } catch {
       setError(
-        isDraw
-          ? '다시 뽑지 못했어요. 잠시 후 시도해 주세요.'
-          : '처리하지 못했어요. 다시 시도해 주세요.',
+        action === 'END'
+          ? '처리하지 못했어요. 다시 시도해 주세요.'
+          : '다시 뽑지 못했어요. 잠시 후 시도해 주세요.',
       );
       setPending(null);
     }
@@ -73,7 +74,9 @@ export function ChallengeGroupScreen({ group }: { group: ChallengeGroup }) {
             {group.category.emoji} {group.category.name}
           </h1>
           <p className="mt-1 text-sm text-ink-sub">
-            챌린지 {drawn} / {MAX_CHALLENGES_PER_GROUP}개 진행 중
+            {current
+              ? `${current.position} / ${MAX_CHALLENGES_PER_GROUP}번째 챌린지`
+              : `${completed.length}개 완료`}
           </p>
         </div>
 
@@ -120,13 +123,15 @@ export function ChallengeGroupScreen({ group }: { group: ChallengeGroup }) {
           </article>
         )}
 
-        {/* 앞서 나온 챌린지들 — 그룹에 무엇이 담겼는지 한눈에 보이게 */}
-        {drawn > 1 && (
+        {/* 완료한 챌린지만 아래에 쌓인다 (다시 뽑기로 교체된 것은 남지 않는다) */}
+        {completed.length > 0 && (
           <ol className="mt-4 space-y-1.5">
-            {group.items.slice(0, -1).map((item) => (
+            {completed.map((item) => (
               <li key={item.id} className="flex items-center gap-2 text-sm text-ink-sub">
-                <span className="w-4 shrink-0 text-center text-xs">{item.position}</span>
-                <span className="truncate">
+                <span className="shrink-0 text-brand-500" aria-hidden>
+                  ✓
+                </span>
+                <span className="truncate line-through">
                   {item.challenge.emoji} {item.challenge.title}
                 </span>
               </li>
@@ -140,33 +145,33 @@ export function ChallengeGroupScreen({ group }: { group: ChallengeGroup }) {
       <div className="pb-bar fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white/95 px-5 pt-3 backdrop-blur">
         <button
           type="button"
-          onClick={() => void call('DRAW')}
-          disabled={pending !== null || full}
+          onClick={() => void call('REDRAW')}
+          disabled={pending !== null || !current}
           className="h-14 w-full rounded-2xl bg-brand-500 text-base font-semibold text-white active:bg-brand-600 disabled:opacity-60"
         >
-          {full ? '5개를 모두 뽑았어요' : '다시 뽑기'}
+          다시 뽑기
         </button>
         <div className="mt-2 flex gap-2">
           <button
             type="button"
-            onClick={() => void call('ENDED')}
+            onClick={() => void call('END')}
             disabled={pending !== null}
             className="h-12 flex-1 rounded-2xl border border-line bg-white text-sm font-semibold text-ink-sub active:bg-gray-50 disabled:opacity-60"
           >
-            {pending === 'ENDED' ? '처리 중…' : '그만두기'}
+            {pending === 'END' ? '처리 중…' : '그만두기'}
           </button>
           <button
             type="button"
-            onClick={() => void call('COMPLETED')}
-            disabled={pending !== null}
+            onClick={() => void call('COMPLETE')}
+            disabled={pending !== null || !current}
             className="h-12 flex-1 rounded-2xl border border-line bg-white text-sm font-semibold text-ink active:bg-gray-50 disabled:opacity-60"
           >
-            {pending === 'COMPLETED' ? '처리 중…' : '완료하기'}
+            완료하기
           </button>
         </div>
       </div>
 
-      {pending === 'DRAW' && (
+      {pending !== null && DRAWS.includes(pending) && (
         <ChallengeDrawOverlay emoji={group.category.emoji} name={group.category.name} />
       )}
     </div>

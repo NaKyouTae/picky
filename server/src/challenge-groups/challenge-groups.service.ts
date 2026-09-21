@@ -2,7 +2,6 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { ChallengesService } from '../challenges/challenges.service';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ChallengeGroupStatus } from '../generated/prisma/enums';
-import type { FinishChallengeGroupDto } from './dto/finish-challenge-group.dto';
 import type { StartChallengeGroupDto } from './dto/start-challenge-group.dto';
 
 /** 그룹 하나에 담을 수 있는 챌린지 수 */
@@ -24,6 +23,7 @@ const GROUP_FIELDS = {
     select: {
       id: true,
       position: true,
+      completedAt: true,
       createdAt: true,
       challenge: {
         select: { id: true, title: true, description: true, duration: true, emoji: true },
@@ -93,51 +93,86 @@ export class ChallengeGroupsService {
   }
 
   /**
-   * 다음 챌린지 뽑기.
-   * 그룹에 이미 담긴 챌린지는 제외하고 뽑아 같은 게 두 번 나오지 않는다.
-   * 5개가 차면 더 뽑을 수 없다.
+   * 다시 뽑기 — **현재 칸의 챌린지만 교체**한다.
+   * 칸(position)은 그대로 두므로 번호가 올라가지 않는다. 새 칸은 완료할 때만 늘어난다.
+   * 그룹에 들어 있는 챌린지는 제외하고 뽑아 같은 게 다시 나오지 않는다.
    */
-  async drawNext(userId: string, id: string) {
+  async redraw(userId: string, id: string) {
     const group = await this.requireInProgress(userId, id);
-
-    if (group.items.length >= MAX_CHALLENGES_PER_GROUP) {
-      throw new ConflictException(
-        `한 그룹에는 챌린지를 ${MAX_CHALLENGES_PER_GROUP}개까지만 담을 수 있습니다.`,
-      );
-    }
+    const current = currentItem(group.items);
 
     const next = await this.challenges.random({
       categoryId: group.categoryId,
       excludeIds: group.items.map((item) => item.challengeId),
     });
 
-    await this.prisma.challengeGroupItem.create({
-      data: {
-        groupId: id,
-        challengeId: next.id,
-        position: group.items.length + 1,
-      },
+    await this.prisma.challengeGroupItem.update({
+      where: { id: current.id },
+      data: { challengeId: next.id },
     });
 
-    return this.prisma.challengeGroup.findUniqueOrThrow({
+    return this.byId(id);
+  }
+
+  /**
+   * 현재 챌린지 완료 → 다음 칸으로 넘어간다.
+   * 마지막 칸(5번째)을 완료하면 그룹 전체가 완료된다.
+   * 더 뽑을 챌린지가 남지 않은 경우에도 그룹을 완료로 닫는다 (빈 칸으로 멈추지 않게).
+   */
+  async completeCurrent(userId: string, id: string) {
+    const group = await this.requireInProgress(userId, id);
+    const current = currentItem(group.items);
+    const now = new Date();
+
+    const completeItem = this.prisma.challengeGroupItem.update({
+      where: { id: current.id },
+      data: { completedAt: now },
+    });
+    const completeGroup = this.prisma.challengeGroup.update({
       where: { id },
+      data: { status: ChallengeGroupStatus.COMPLETED, completedAt: now },
+    });
+
+    if (current.position >= MAX_CHALLENGES_PER_GROUP) {
+      await this.prisma.$transaction([completeItem, completeGroup]);
+      return this.byId(id);
+    }
+
+    const next = await this.challenges
+      .random({
+        categoryId: group.categoryId,
+        excludeIds: group.items.map((item) => item.challengeId),
+      })
+      .catch(() => null);
+
+    if (!next) {
+      await this.prisma.$transaction([completeItem, completeGroup]);
+      return this.byId(id);
+    }
+
+    await this.prisma.$transaction([
+      completeItem,
+      this.prisma.challengeGroupItem.create({
+        data: { groupId: id, challengeId: next.id, position: current.position + 1 },
+      }),
+    ]);
+
+    return this.byId(id);
+  }
+
+  /** 그만두기 — 완료하지 않고 그룹을 닫는다 (완료는 completeCurrent 가 담당한다) */
+  async end(userId: string, id: string) {
+    await this.requireInProgress(userId, id);
+
+    return this.prisma.challengeGroup.update({
+      where: { id },
+      data: { status: ChallengeGroupStatus.ENDED, endedAt: new Date() },
       select: GROUP_FIELDS,
     });
   }
 
-  /** 완료하거나 그만두기 — 진행 중인 그룹에만 적용된다 */
-  async finish(userId: string, id: string, { status }: FinishChallengeGroupDto) {
-    await this.requireInProgress(userId, id);
-    const now = new Date();
-
-    return this.prisma.challengeGroup.update({
-      where: { id },
-      data:
-        status === 'COMPLETED'
-          ? { status: ChallengeGroupStatus.COMPLETED, completedAt: now }
-          : { status: ChallengeGroupStatus.ENDED, endedAt: now },
-      select: GROUP_FIELDS,
-    });
+  private byId(id: string) {
+    return this.prisma.challengeGroup.findUniqueOrThrow({ where: { id }, select: GROUP_FIELDS });
   }
 
   /** 남의 그룹을 건드리지 못하도록 userId 까지 조건에 넣어 조회한다 */
@@ -148,7 +183,10 @@ export class ChallengeGroupsService {
         id: true,
         status: true,
         categoryId: true,
-        items: { select: { challengeId: true } },
+        items: {
+          orderBy: { position: 'asc' },
+          select: { id: true, position: true, challengeId: true, completedAt: true },
+        },
       },
     });
 
@@ -160,4 +198,14 @@ export class ChallengeGroupsService {
     }
     return group;
   }
+}
+
+/** 아직 완료하지 않은 칸 = 지금 진행 중인 챌린지 */
+function currentItem<T extends { completedAt: Date | null }>(items: T[]): T {
+  const current = items.find((item) => item.completedAt === null);
+  if (!current) {
+    // 진행 중 그룹이라면 완료되지 않은 칸이 반드시 하나 있다.
+    throw new ConflictException('진행 중인 챌린지가 없습니다.');
+  }
+  return current;
 }

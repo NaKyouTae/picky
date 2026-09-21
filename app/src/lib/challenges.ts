@@ -18,11 +18,17 @@ export type Challenge = {
   emoji: string | null;
 };
 
-/** 그룹에 담긴 챌린지 한 칸 */
+/**
+ * 그룹의 챌린지 한 칸.
+ * '다시 뽑기' 는 새 칸을 만들지 않고 현재 칸의 challenge 만 바꾼다.
+ * 칸은 완료할 때만 늘어난다.
+ */
 export type ChallengeGroupItem = {
   id: string;
-  /** 그룹 안에서 몇 번째로 나왔는지 (1..5) */
+  /** 그룹 안 몇 번째 칸인지 (1..5) */
   position: number;
+  /** 완료한 시각 — null 이면 지금 진행 중인 칸 */
+  completedAt: string | null;
   createdAt: string;
   challenge: Challenge;
 };
