@@ -2,16 +2,15 @@ import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common
 import { ConfigService } from '@nestjs/config';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
+/** Storage 버킷 이름 — 환경마다 다르지 않아 코드에 고정한다 */
+const STORAGE_BUCKET = 'picky';
+
 @Injectable()
 export class SupabaseService {
   private readonly logger = new Logger(SupabaseService.name);
   private client?: SupabaseClient;
 
   constructor(private readonly config: ConfigService) {}
-
-  private get bucket(): string {
-    return this.config.get<string>('SUPABASE_STORAGE_BUCKET') ?? 'picky';
-  }
 
   /** 실제 사용 시점에 생성 (환경변수 미설정 상태에서도 서버는 기동) */
   getClient(): SupabaseClient {
@@ -35,7 +34,7 @@ export class SupabaseService {
   /** Storage 업로드 후 public URL 반환 */
   async upload(path: string, file: Buffer, contentType: string): Promise<string> {
     const { error } = await this.getClient()
-      .storage.from(this.bucket)
+      .storage.from(STORAGE_BUCKET)
       .upload(path, file, { contentType, upsert: true });
 
     if (error) {
@@ -47,11 +46,11 @@ export class SupabaseService {
   }
 
   getPublicUrl(path: string): string {
-    return this.getClient().storage.from(this.bucket).getPublicUrl(path).data.publicUrl;
+    return this.getClient().storage.from(STORAGE_BUCKET).getPublicUrl(path).data.publicUrl;
   }
 
   async remove(paths: string[]): Promise<void> {
-    const { error } = await this.getClient().storage.from(this.bucket).remove(paths);
+    const { error } = await this.getClient().storage.from(STORAGE_BUCKET).remove(paths);
     if (error) {
       this.logger.error(`Storage 삭제 실패: ${error.message}`);
     }

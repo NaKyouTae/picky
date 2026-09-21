@@ -105,5 +105,8 @@ pnpm db:studio    # prisma studio
 
 ## 배포
 
-- server → 클라우드타입 (루트 `Dockerfile`, `.cloudtype/app.yaml`, 포트 21000, healthz `/api/health`)
+- server → 클라우드타입 (루트 `Dockerfile`, 포트 21000, healthz `/api/health`)
+  - **배포 설정·환경변수는 콘솔에서만 관리한다.** `.cloudtype/app.yaml` 을 만들지 말 것 —
+    클라우드타입이 그 파일을 서비스 설정 전체로 받아 콘솔 환경변수를 덮어버린다(실제로 두 번 소실)
+  - 같은 이유로 자동 배포 워크플로도 두지 않는다. 배포는 콘솔에서 수동으로 한다
 - app / admin → Vercel (Root Directory 를 각각 `app`, `admin`)

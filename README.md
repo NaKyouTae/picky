@@ -15,7 +15,6 @@ picky/
 ├── turbo.json            # 태스크 파이프라인
 ├── pnpm-workspace.yaml
 ├── Dockerfile            # server 이미지 (build context = 저장소 루트)
-├── .cloudtype/app.yaml   # 클라우드타입 배포 설정
 ├── server/               # @picky/server
 │   ├── prisma/schema.prisma
 │   ├── prisma.config.ts  # Prisma 7 설정 (migrate 용 DIRECT_URL)
@@ -88,56 +87,58 @@ Prisma 7 부터 연결 URL 은 `schema.prisma` 가 아닌 곳에서 관리합니
 
 ### server → 클라우드타입
 
-배포 설정은 [.cloudtype/app.yaml](.cloudtype/app.yaml) 에 있습니다 (`app: dockerfile`, 포트 `21000`, 헬스체크 `/api/health`).
+**배포 설정은 저장소에 두지 않고 클라우드타입 콘솔에서만 관리합니다.**
 루트 [Dockerfile](Dockerfile) 이 모노레포 전체를 build context 로 사용해 `@picky/server` 만 빌드합니다.
 
-#### 환경변수 — 콘솔에서만 관리합니다
+> ⚠️ `.cloudtype/app.yaml` 을 다시 만들지 마세요.
+>
+> 클라우드타입은 이 파일을 **서비스 설정 전체**로 받습니다. `env` 를 일부만 적으면 나머지가,
+> 아예 적지 않으면 **전부** 배포 때마다 지워집니다. 실제로 두 번 날아갔습니다
+> (`env` 일부만 선언 → 나머지 소실 / `env` 블록 제거 → 전체 소실).
+>
+> 같은 이유로 `cloudtype-github-actions/deploy` 액션도 쓰지 않습니다. 이 액션은
+> `file`·`json`·`yaml` 중 하나로 **설정 전체를 반드시 함께 보내야** 하므로, 설정을 건드리지 않는
+> 자동 배포가 불가능합니다.
 
-`app.yaml` 의 `env` 목록은 컨테이너 환경변수를 **통째로 덮어씁니다.** 일부만 적어 두면 콘솔에서
-입력한 나머지가 배포 때마다 지워지므로, `app.yaml` 에는 `env` 선언을 두지 않고 콘솔
-**환경변수** 화면을 단일 소스로 씁니다. **시크릿 탭도 쓰지 않습니다.**
+#### 환경변수 — 콘솔 [환경변수] 화면이 단일 소스
 
-> ⚠️ `app.yaml` 에 `env:` 블록을 다시 추가하지 마세요. 추가하는 순간 콘솔 값이 전부 날아갑니다.
+**시크릿 탭도 쓰지 않습니다.** 모든 값을 [환경변수] 화면에 평문으로 입력합니다.
 
-콘솔에 등록할 값 19개 — 운영 전용 값은 로컬 `server/.env` 와 다르니 주의:
+콘솔에 등록할 값 17개 — 운영 전용 값은 로컬 `server/.env` 와 다르니 주의:
 
-| 키 | 값 |
-| --- | --- |
-| `NODE_ENV` | `production` |
-| `PORT` | `21000` |
-| `CORS_ORIGINS` | `https://picky.spectrify.kr,http://localhost:21001,http://localhost:21002` |
-| `SUPABASE_STORAGE_BUCKET` | `picky` |
-| `JWT_EXPIRES_IN` | `7d` |
-| `KAKAO_REDIRECT_URI` | `https://picky.spectrify.kr/auth/kakao/callback` |
-| `GOOGLE_REDIRECT_URI` | `https://picky.spectrify.kr/auth/google/callback` |
-| `DATABASE_URL` · `DIRECT_URL` · `SUPABASE_URL` · `SUPABASE_SERVICE_ROLE_KEY` · `JWT_SECRET` · `ADMIN_TOKEN` · `ADMIN_USERNAME` · `ADMIN_PASSWORD` · `KAKAO_REST_API_KEY` · `KAKAO_CLIENT_SECRET` · `GOOGLE_CLIENT_ID` · `GOOGLE_CLIENT_SECRET` | `server/.env` 값을 그대로 |
+| 키                                                                                                                                                                                                                                             | 값                                                                         |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `NODE_ENV`                                                                                                                                                                                                                                     | `production`                                                               |
+| `PORT`                                                                                                                                                                                                                                         | `21000`                                                                    |
+| `CORS_ORIGINS`                                                                                                                                                                                                                                 | `https://picky.spectrify.kr,http://localhost:21001,http://localhost:21002` |
+| `KAKAO_REDIRECT_URI`                                                                                                                                                                                                                           | `https://picky.spectrify.kr/auth/kakao/callback`                           |
+| `GOOGLE_REDIRECT_URI`                                                                                                                                                                                                                          | `https://picky.spectrify.kr/auth/google/callback`                          |
+| `DATABASE_URL` · `DIRECT_URL` · `SUPABASE_URL` · `SUPABASE_SERVICE_ROLE_KEY` · `JWT_SECRET` · `ADMIN_TOKEN` · `ADMIN_USERNAME` · `ADMIN_PASSWORD` · `KAKAO_REST_API_KEY` · `KAKAO_CLIENT_SECRET` · `GOOGLE_CLIENT_ID` · `GOOGLE_CLIENT_SECRET` | `server/.env` 값을 그대로                                                  |
 
 - 카카오/구글 `REDIRECT_URI` 는 로컬 `.env` 의 `localhost` 값을 쓰면 안 되고, 각 제공자 콘솔에
   등록한 Redirect URI 와 문자 단위로 같아야 합니다.
 - `SUPABASE_ANON_KEY` 는 서버 코드가 읽지 않으므로 설정하지 않아도 됩니다.
+- Storage 버킷(`picky`)과 JWT 만료 기간(`7d`)은 환경마다 다르지 않아 코드에 고정했습니다 —
+  환경변수로 넣지 않습니다.
 - `ADMIN_TOKEN` / `ADMIN_PASSWORD` 는 로컬과 다른 값을 쓰는 편이 안전합니다.
 
-#### 배포 절차
+#### 배포 절차 (콘솔에서 수동)
 
 1. **내 GitHub 저장소 배포하기** → `NaKyouTae/picky` 선택 (서브 디렉토리는 비워 둠)
-2. `.cloudtype/app.yaml` 을 자동으로 읽어 빌드 설정(포트·Dockerfile·헬스체크)이 채워집니다
-3. 콘솔 **환경변수** 화면에서 위 19개를 입력
-4. 프론트 도메인이 바뀌면 콘솔의 `CORS_ORIGINS` 값을 해당 도메인으로 수정
+2. 빌드 설정을 콘솔에서 직접 지정: `dockerfile` / 포트 `21000` / 헬스체크 `/api/health`
+3. 콘솔 **환경변수** 화면에서 위 17개를 입력
+4. 이후 배포는 콘솔의 **배포 내역 → 재배포**(또는 커밋 선택 배포)로 실행합니다
+5. 프론트 도메인이 바뀌면 콘솔의 `CORS_ORIGINS` 값을 해당 도메인으로 수정
 
-마이그레이션은 배포 전 로컬 또는 CI 에서 `pnpm --filter @picky/server db:deploy` 로 적용합니다.
+마이그레이션은 배포 전 로컬에서 `pnpm --filter @picky/server db:deploy` 로 적용합니다.
 
-#### 자동 배포 (GitHub Actions)
+#### 자동 배포는 쓰지 않습니다
 
-클라우드타입은 GitHub 연동만으로는 재배포되지 않아 [.github/workflows/deploy-server.yml](.github/workflows/deploy-server.yml) 이
-`main` 푸시(서버 관련 경로 변경 시) 또는 Actions 탭의 수동 실행으로 배포를 트리거합니다.
-배포 설정은 `.cloudtype/app.yaml` 을 그대로 사용하고, 배포 후 `/api/health` 가 200 이 될 때까지 확인합니다.
+푸시할 때마다 배포되게 하려면 위 액션이 설정 전체를 함께 밀어야 하고, 그때 콘솔 환경변수가
+지워집니다. 그래서 자동 배포 워크플로를 제거했습니다 — **배포는 콘솔에서 직접** 합니다.
 
-저장소 **Settings → Secrets and variables → Actions** 에 아래를 등록해야 동작합니다 (없으면 배포를 건너뜁니다).
-
-| 구분 | 이름 | 값 |
-| --- | --- | --- |
-| Secret | `CLOUDTYPE_TOKEN` | 클라우드타입 콘솔 → 설정 → API Key |
-| Variable | `CLOUDTYPE_PROJECT` | `스페이스/프로젝트` (예: `nakyoutae/picky`) |
+자동 배포를 되살리려면 설정을 건드리지 않고 재배포만 트리거하는 방법(예: 콘솔 CLI 탭의
+`ctcli`)을 먼저 확인해야 합니다.
 | Variable | `CLOUDTYPE_STAGE` | (선택) 기본값 `main` |
 
 로컬에서 이미지 확인:
