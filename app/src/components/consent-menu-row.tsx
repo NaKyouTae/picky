@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
  * 철회 확인은 상세 화면의 동의 바에서 하고, 여기서는 즉시 반영한다(되돌리기 쉬운 조작).
  *
  * 디자인(Figma 4658:3858)의 on/off 는 스위치가 아니라 두 칸짜리 세그먼트다 —
- * 켜진 쪽이 point 색, 꺼진 쪽이 gray600 으로 칠해진다.
+ * 지금 상태인 쪽(동의/미동의)이 point 색, 반대쪽이 gray600 으로 칠해진다.
  */
 export function ConsentMenuRow({
   consentKey,
@@ -66,7 +66,8 @@ export function ConsentMenuRow({
           disabled={loading || !state || pending}
           aria-label={`${label} ${agreed ? '철회' : '동의'}`}
           aria-pressed={agreed}
-          className="flex h-[34px] w-[72px] shrink-0 items-stretch py-[5px] text-[14px] leading-none disabled:opacity-50"
+          // 폭은 '미동의' 가 12px 로 들어가는 크기다 — 한 칸(48px)에 글자 36px + 좌우 여백.
+          className="flex h-[34px] w-24 shrink-0 items-stretch py-[5px] text-[12px] leading-none whitespace-nowrap disabled:opacity-50"
         >
           <span
             className={cn(
@@ -74,7 +75,7 @@ export function ConsentMenuRow({
               agreed ? 'bg-point' : 'bg-night-raised',
             )}
           >
-            on
+            동의
           </span>
           <span
             className={cn(
@@ -82,7 +83,7 @@ export function ConsentMenuRow({
               agreed ? 'bg-night-raised' : 'bg-point',
             )}
           >
-            off
+            미동의
           </span>
         </button>
       </div>
