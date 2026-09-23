@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>kr.spectrify.picky</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>picky</string>
+			</array>
+		</dict>
+	</array>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<!-- Debug 빌드가 로컬 개발 서버(http://localhost:21001)를 띄우기 위한 예외.
+		     운영 주소는 https 이므로 Release 동작에는 영향이 없다. -->
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>localhost</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>kakaokompassauth</string>
+		<string>kakaotalk</string>
+	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>챌린지 인증 사진을 찍기 위해 카메라를 사용합니다.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>챌린지 인증과 콜라주에 넣을 사진을 고르기 위해 사진에 접근합니다.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>완성한 콜라주를 사진 앱에 저장하기 위해 사용합니다.</string>
+</dict>
+</plist>

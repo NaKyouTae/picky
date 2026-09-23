@@ -14,6 +14,7 @@ import {
   releasePhoto,
   type CollagePhoto,
 } from '@/lib/collage-photo';
+import { isNativeApp, saveImageToPhotos } from '@/lib/native-app';
 import { cn } from '@/lib/utils';
 import { coverCrop, drawCollage, type SlotFill } from '@picky/collage';
 
@@ -349,14 +350,34 @@ export function CollageMaker({
     }
   }
 
-  /** 내려받기 — 앵커에 blob URL 을 달아 브라우저 저장을 부른다 */
-  async function download() {
-    if (!canExport || saving) return;
+  /**
+   * 내려받기.
+   *
+   * 웹에서는 앵커에 blob URL 을 달아 브라우저 저장을 부른다.
+   * 네이티브 앱(WKWebView)은 `<a download>` 를 무시해서 이 방식이 아무 일도 하지 않으므로,
+   * PNG 를 네이티브로 넘겨 사진 앱에 담는다 (ios/Picky/Picky/WebView.swift).
+   */
+  async function download(): Promise<boolean> {
+    if (!canExport || saving) return false;
     setSaving(true);
     setError(null);
 
     try {
-      const url = URL.createObjectURL(await renderBlob());
+      const blob = await renderBlob();
+
+      if (isNativeApp()) {
+        const saved = await saveImageToPhotos(blob);
+        if (saved.ok) {
+          setNotice('사진을 저장했어요.');
+        } else if (saved.reason === 'denied') {
+          setError('사진 접근을 허용해야 저장할 수 있어요. 설정에서 바꿔 주세요.');
+        } else {
+          setError('저장하지 못했어요. 다시 시도해 주세요.');
+        }
+        return saved.ok;
+      }
+
+      const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
       anchor.download = `picky-${Date.now()}.png`;
@@ -364,8 +385,10 @@ export function CollageMaker({
       // 클릭 직후 바로 거둬들이면 저장이 시작되기 전에 끊길 수 있다.
       setTimeout(() => URL.revokeObjectURL(url), 10_000);
       setNotice('사진을 저장했어요.');
+      return true;
     } catch {
       setError('저장하지 못했어요. 다시 시도해 주세요.');
+      return false;
     } finally {
       setSaving(false);
     }
@@ -560,13 +583,19 @@ export function CollageMaker({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={result} alt="완성된 콜라주" className="max-h-full w-full object-contain" />
           </div>
-          <a
-            href={result}
-            download="picky-collage.png"
-            className="flex h-[52px] w-full items-center justify-center rounded-lg bg-point text-[16px] font-medium text-night"
+          {/* 앵커의 download 속성은 WKWebView 에서 무시된다 — 저장은 download() 한 경로로만 부른다 */}
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => {
+              void download().then((ok) => {
+                if (ok) setResult(null);
+              });
+            }}
+            className="flex h-[52px] w-full items-center justify-center rounded-lg bg-point text-[16px] font-medium text-night disabled:opacity-60"
           >
             내려받기
-          </a>
+          </button>
           <button
             type="button"
             onClick={() => setResult(null)}

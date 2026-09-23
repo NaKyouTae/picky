@@ -9,6 +9,7 @@
 | `server`     | NestJS 11 + Prisma 7 + Supabase | **21000** | Cloudtype |
 | `app`        | Next.js 16 (모바일 UI first)    | **21001** | Vercel    |
 | `admin`      | Next.js 16 (관리자)             | **21002** | Vercel    |
+| `ios/Picky`  | 운영 웹을 띄우는 WKWebView 래퍼 | —         | App Store |
 
 ```
 picky/
@@ -26,6 +27,7 @@ picky/
 │   ├── src/lib/api.ts         # 서버 컴포넌트용 API 클라이언트
 │   └── src/components         # 하단 탭바 등 모바일 셸
 ├── admin/                # @picky/admin (ADMIN_TOKEN 자동 첨부)
+├── ios/Picky/            # iOS 래퍼 앱 (Xcode) — ios/README.md
 └── packages/             # 공용 패키지 자리
 ```
 
@@ -76,7 +78,9 @@ Prisma 7 부터 연결 URL 은 `schema.prisma` 가 아닌 곳에서 관리합니
 
 ## 컨벤션
 
-- **모바일 UI first** — `app` 은 `max-w-shell`(430px) 모바일 셸 고정. 데스크톱 전용 분기 없이 모바일 기준으로 작성
+- **모바일 UI first** — `app` 은 모바일 셸 기준으로 작성합니다. 디자인 프레임 폭은 390px(`--spacing-shell`)
+  - 셸(`app-shell`)은 폰에서 화면을 꽉 채우고, 640px 이상에서만 390px 프레임으로 좁아집니다.
+    폭을 항상 390px 로 잠그면 그보다 넓은 폰(402·430·440pt)에서 좌우에 canvas 색 띠가 남습니다
   - safe-area: `safe-top` / `safe-bottom` 유틸리티 사용
   - 터치 타깃 최소 44px, input `font-size: 16px` (iOS 확대 방지), `100dvh` 사용
 - **BFF 프록시 패턴** — 브라우저는 `/api/*`(Next Route Handler) 만 호출하고, 서버 주소·토큰은 노출하지 않음
@@ -153,3 +157,12 @@ docker run -p 21000:21000 -e DATABASE_URL="..." picky-server
 프로젝트를 2개 만들고 각각 **Root Directory** 를 `app`, `admin` 으로 지정합니다.
 빌드 명령은 각 워크스페이스의 `vercel.json` 에 정의되어 있습니다 (turbo 필터 빌드).
 `API_BASE_URL` 은 Cloudtype 서버 주소로 설정합니다.
+
+### iOS → App Store
+
+`ios/Picky` 는 화면을 갖지 않고 `https://picky.spectrify.kr` 를 그대로 띄우는 WKWebView
+래퍼입니다. 번들 ID 는 `kr.spectrify.picky`, 최소 버전은 iOS 17.0 입니다.
+
+앱에 새 빌드를 올리기 전에 **웹을 먼저 배포**하세요 — 앱은 운영 URL 을 그대로 봅니다.
+버전 올리기·아카이브·심사 제출 절차와, 웹과 맞물려 있어 한쪽만 고치면 깨지는 부분
+(스플래시·콜라주 저장·결제 앱 스킴)은 [ios/README.md](ios/README.md) 에 있습니다.

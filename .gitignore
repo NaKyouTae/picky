@@ -36,3 +36,9 @@ coverage/
 
 # vercel
 .vercel
+
+# xcode
+ios/**/xcuserdata/
+ios/**/DerivedData/
+ios/**/*.xcuserstate
+ios/**/build/

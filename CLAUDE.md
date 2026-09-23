@@ -7,6 +7,7 @@ pnpm + Turborepo 모노레포:
 - `server/` — NestJS 11 + Prisma 7 (port **21000**)
 - `app/` — Next.js 16, 사용자용 (port **21001**)
 - `admin/` — Next.js 16, 관리자용 (port **21002**)
+- `ios/Picky/` — 운영 웹을 띄우는 WKWebView 래퍼 (App Store 배포용)
 
 ## 기술 스택
 
@@ -78,7 +79,10 @@ pnpm + Turborepo 모노레포:
 
 ## 컨벤션
 
-- **app 은 모바일 전용 레이아웃** — `max-w-shell`(390px, 디자인 프레임 폭) 고정. `md:` / `lg:` 브레이크포인트 사용 금지
+- **app 은 모바일 전용 레이아웃** — 디자인 프레임 폭은 390px(`--spacing-shell`). `md:` / `lg:` 브레이크포인트 사용 금지
+  - 예외는 앱 셸 하나뿐 — `app-shell`(globals.css)은 폰에서 화면을 꽉 채우고, 640px 이상에서만
+    390px 프레임으로 좁아진다. 폭을 항상 390px 로 잠그면 그보다 넓은 폰(402·430·440pt)에서
+    좌우에 canvas 색 띠가 남는다
   - safe-area 는 `safe-top` / `safe-bottom` 유틸리티
   - 터치 타깃 최소 44px, input `font-size: 16px`(iOS 확대 방지), 높이는 `dvh`
 - **BFF 프록시 패턴** — 브라우저는 `/api/*`(Next Route Handler) 만 호출. 서버 주소·토큰은 노출하지 않음
@@ -115,3 +119,9 @@ DB 에 닿지 못하면 경고만 남기고 서버는 그대로 뜬다 (DB 없�
     클라우드타입이 그 파일을 서비스 설정 전체로 받아 콘솔 환경변수를 덮어버린다(실제로 두 번 소실)
   - 같은 이유로 자동 배포 워크플로도 두지 않는다. 배포는 콘솔에서 수동으로 한다
 - app / admin → Vercel (Root Directory 를 각각 `app`, `admin`)
+- iOS → App Store (`ios/Picky`, 번들 `kr.spectrify.picky`). 자세한 절차는 [ios/README.md](ios/README.md)
+  - 앱은 화면을 갖지 않고 `https://picky.spectrify.kr` 를 그대로 띄운다 — **웹을 먼저 배포**할 것
+  - 웹과 맞물린 곳이 세 군데 있다. 한쪽만 고치면 앱에서 깨진다:
+    스플래시(배경 `#121212` · 마크 120px), 콜라주 저장(`saveImage` 브리지), 결제 앱 스킴(`picky://`)
+  - `isNativeApp()`(`app/src/lib/native-app.ts`) 은 `saveImage` 핸들러의 존재로 앱을 판별한다.
+    WKWebView 에서 `<a download>` 처럼 동작하지 않는 API 를 쓸 때는 이 함수로 갈라 준다

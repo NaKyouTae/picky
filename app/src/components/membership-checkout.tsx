@@ -3,6 +3,7 @@
 import { loadTossPayments, type TossPaymentsWidgets } from '@tosspayments/tosspayments-sdk';
 import { useEffect, useRef, useState } from 'react';
 import { formatKrw } from '@/lib/membership-format';
+import { isNativeApp } from '@/lib/native-app';
 import type { MembershipPlan, PreparedOrder } from '@/lib/memberships';
 
 const CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY ?? '';
@@ -122,6 +123,10 @@ export function MembershipCheckout({
         failUrl: `${window.location.origin}/membership/fail?returnTo=${back}`,
         customerName,
         customerEmail: customerEmail ?? undefined,
+        // iOS 앱에서는 ISP/페이북 같은 카드사 앱으로 넘어갔다가 돌아와야 한다.
+        // 앱 스킴을 주지 않으면 인증을 마치고도 카드사 앱에 머물러 결제가 끊긴다.
+        // (스킴 등록: ios/Picky/Picky/Info.plist 의 CFBundleURLTypes)
+        ...(isNativeApp() ? { card: { appScheme: 'picky://' } } : {}),
       });
     } catch (e) {
       // 창을 닫거나 결제가 중단된 경우 — 주문이 PENDING 으로 남지 않게 사유를 기록한다.
