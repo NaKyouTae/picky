@@ -18,7 +18,7 @@ pnpm + Turborepo 모노레포:
   - 런타임: `PrismaService` → `@prisma/adapter-pg` + `DATABASE_URL`(transaction pooler 6543, `sslmode=no-verify`)
   - 마이그레이션: `prisma.config.ts` → `DIRECT_URL`(session pooler 5432, `sslmode=require`)
   - 생성된 Client 는 `server/src/generated/prisma` (git 제외, `pnpm db:generate`)
-- 인증: SNS 로그인(카카오/네이버/구글) + JWT (비밀번호 없음)
+- 인증: SNS 로그인(카카오/네이버/Apple) + JWT (비밀번호 없음)
 - 파일 저장: Supabase Storage (`SupabaseService`, 실제 사용 시점에 클라이언트 생성)
 
 ### 프론트
@@ -73,7 +73,10 @@ pnpm + Turborepo 모노레포:
 
 - `User` 1 : N `Account` — SNS 계정 연결
   - `User`: `email`(unique, 필수), `name`(필수), `gender` / `ageRange` / `birthday`(선택)
-  - `Account`: `providerType`(KAKAO / NAVER / GOOGLE) + `providerId`(제공자 회원번호) + `userId`
+  - `Account`: `providerType`(KAKAO / NAVER / APPLE) + `providerId`(제공자 회원번호) + `userId`
+  - **Apple 로그인은 다른 둘과 성격이 다르다** — 이름을 최초 1회만 주고, 전화번호·약관 동의를
+    주지 않는다. 연락처로 회원을 묶는 규칙(아래)이 적용되지 않아 늘 별도 회원이 된다.
+    소셜 로그인만 제공하는 앱은 애플이 함께 요구하므로(심사 지침 4.8) 뺄 수 없다
   - 로그인 시 `(providerType, providerId)` 로 계정을 찾고, 없으면 `User` + `Account` 를 함께 생성
   - 같은 유저가 같은 제공자를 두 번 연결하지 못하도록 `(userId, providerType)` 도 unique
 

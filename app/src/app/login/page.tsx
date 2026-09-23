@@ -13,11 +13,12 @@ const LOGIN_ERRORS: Record<string, string> = {
   login_failed: '로그인에 실패했습니다. 다시 시도해 주세요.',
   kakao_unavailable: '카카오 로그인을 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.',
   naver_unavailable: '네이버 로그인을 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.',
+  apple_unavailable: 'Apple 로그인을 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.',
 };
 
 /** 쿠키 값은 사용자가 바꿀 수 있으므로 아는 제공자일 때만 믿는다 */
 function readRecentProvider(value: string | undefined): OAuthProvider | null {
-  return value === 'kakao' || value === 'naver' ? value : null;
+  return value === 'kakao' || value === 'naver' || value === 'apple' ? value : null;
 }
 
 /**

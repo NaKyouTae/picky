@@ -23,6 +23,11 @@ const DISCONNECT_GUIDE: Record<string, { label: string; href: string; hint: stri
     href: 'https://nid.naver.com/',
     hint: '보안설정 > 연결된 서비스 관리',
   },
+  APPLE: {
+    label: 'Apple',
+    href: 'https://account.apple.com/account/manage',
+    hint: '로그인 및 보안 > Apple로 로그인',
+  },
 };
 
 /**

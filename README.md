@@ -108,7 +108,7 @@ Prisma 7 부터 연결 URL 은 `schema.prisma` 가 아닌 곳에서 관리합니
 
 **시크릿 탭도 쓰지 않습니다.** 모든 값을 [환경변수] 화면에 평문으로 입력합니다.
 
-콘솔에 등록할 값 17개 — 운영 전용 값은 로컬 `server/.env` 와 다르니 주의:
+콘솔에 등록할 값 22개 — 운영 전용 값은 로컬 `server/.env` 와 다르니 주의:
 
 | 키                                                                                                                                                                                                                                             | 값                                                                         |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
@@ -117,6 +117,8 @@ Prisma 7 부터 연결 URL 은 `schema.prisma` 가 아닌 곳에서 관리합니
 | `CORS_ORIGINS`                                                                                                                                                                                                                                 | `https://picky.spectrify.kr,http://localhost:21001,http://localhost:21002` |
 | `KAKAO_REDIRECT_URI`                                                                                                                                                                                                                           | `https://picky.spectrify.kr/auth/kakao/callback`                           |
 | `GOOGLE_REDIRECT_URI`                                                                                                                                                                                                                          | `https://picky.spectrify.kr/auth/google/callback`                          |
+| `APPLE_REDIRECT_URI`                                                                                                                                                                                                                           | `https://picky.spectrify.kr/auth/apple/callback`                           |
+| `APPLE_CLIENT_ID` · `APPLE_TEAM_ID` · `APPLE_KEY_ID` · `APPLE_PRIVATE_KEY`                                                                                                                                                                     | Apple Developer 에서 발급 (`server/.env.example` 참고)                     |
 | `DATABASE_URL` · `DIRECT_URL` · `SUPABASE_URL` · `SUPABASE_SERVICE_ROLE_KEY` · `JWT_SECRET` · `ADMIN_TOKEN` · `ADMIN_USERNAME` · `ADMIN_PASSWORD` · `KAKAO_REST_API_KEY` · `KAKAO_CLIENT_SECRET` · `KAKAO_ADMIN_KEY` · `GOOGLE_CLIENT_ID` · `GOOGLE_CLIENT_SECRET` | `server/.env` 값을 그대로                                                  |
 
 - 카카오/구글 `REDIRECT_URI` 는 로컬 `.env` 의 `localhost` 값을 쓰면 안 되고, 각 제공자 콘솔에

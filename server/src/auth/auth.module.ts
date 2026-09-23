@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { SupabaseModule } from '../common/supabase/supabase.module';
 import { AuthController } from './auth.controller';
+import { AppleOAuthService } from './apple-oauth.service';
 import { AuthService } from './auth.service';
 import { KakaoOAuthService } from './kakao-oauth.service';
 import { NaverOAuthService } from './naver-oauth.service';
@@ -12,7 +13,14 @@ import { TokenCipherService } from './token-cipher.service';
   // 탈퇴 시 인증 사진을 지운다
   imports: [SupabaseModule],
   controllers: [AuthController],
-  providers: [AuthService, KakaoOAuthService, NaverOAuthService, TokenCipherService, JwtAuthGuard],
+  providers: [
+    AuthService,
+    KakaoOAuthService,
+    NaverOAuthService,
+    AppleOAuthService,
+    TokenCipherService,
+    JwtAuthGuard,
+  ],
   exports: [AuthService],
 })
 export class AuthModule {}

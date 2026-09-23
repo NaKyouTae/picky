@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard, type AuthedRequest } from '../common/guards/jwt-auth.guard';
+import { AppleCallbackDto } from './dto/apple-callback.dto';
 import { AuthService } from './auth.service';
 import { KakaoCallbackDto } from './dto/kakao-callback.dto';
 import { NaverCallbackDto } from './dto/naver-callback.dto';
@@ -47,6 +48,19 @@ export class AuthController {
   @ApiOperation({ summary: '네이버 콜백 — 인가 코드를 세션(JWT)으로 교환' })
   naverCallback(@Body() dto: NaverCallbackDto) {
     return this.auth.loginWithNaver(dto.code, dto.state);
+  }
+
+  @Get('apple/authorize')
+  @ApiOperation({ summary: '애플 로그인 시작 — 인가 URL 과 일회용 state 발급' })
+  appleAuthorize() {
+    return this.auth.createAppleAuthorizeRequest();
+  }
+
+  @Post('apple/callback')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '애플 콜백 — 인가 코드를 세션(JWT)으로 교환' })
+  appleCallback(@Body() dto: AppleCallbackDto) {
+    return this.auth.loginWithApple(dto.code, dto.name ?? null);
   }
 
   @Get('me')

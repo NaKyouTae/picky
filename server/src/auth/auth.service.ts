@@ -10,11 +10,21 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import { BUCKET, SupabaseService } from '../common/supabase/supabase.service';
 import { ConsentSource, ConsentType, ProviderType, UserStatus } from '../generated/prisma/enums';
 import type { Gender } from '../generated/prisma/enums';
+import { AppleOAuthService } from './apple-oauth.service';
 import { KakaoOAuthService } from './kakao-oauth.service';
 import { NaverOAuthService } from './naver-oauth.service';
 import type { ProviderConsent } from './provider-consent';
 import { TokenCipherService } from './token-cipher.service';
 import { UpdateConsentsDto } from './dto/update-consents.dto';
+
+/**
+ * 애플 로그인에서 이름을 받지 못했을 때 쓰는 대체 이름.
+ *
+ * 애플은 이름을 최초 인가 때 단 한 번만 준다. 그 사이 우리 쪽 계정이 지워졌다면
+ * 다시 가입할 때는 이름 없이 오는데, User.name 은 필수라 비워 둘 수 없다.
+ * 사용자가 마이페이지에서 고칠 수 있다.
+ */
+const APPLE_FALLBACK_NAME = '회원';
 
 /** 제공자에 관계없이 로그인에 필요한 프로필 */
 interface SnsProfile {
@@ -176,6 +186,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly kakao: KakaoOAuthService,
     private readonly naver: NaverOAuthService,
+    private readonly apple: AppleOAuthService,
     private readonly cipher: TokenCipherService,
     private readonly supabase: SupabaseService,
   ) {}
@@ -224,6 +235,37 @@ export class AuthService {
       consents,
       consentSource: ConsentSource.NAVER,
       refreshToken,
+    });
+  }
+
+  /** 로그인 시작 — 프론트는 url 로 이동시키고 state 는 httpOnly 쿠키에 보관한다. */
+  createAppleAuthorizeRequest() {
+    return this.apple.createAuthorizeRequest();
+  }
+
+  /**
+   * 애플 콜백 — code 를 프로필로 교환하고 세션(JWT)을 발급한다.
+   *
+   * 애플이 주는 것은 식별자·이메일뿐이다. 카카오·네이버와 달리:
+   * - **이름**은 최초 인가 때만 온다. 없으면 대체 이름으로 가입시키고 사용자가 나중에 고친다
+   *   (User.name 은 필수라 비워 둘 수 없다). 이미 가입된 회원이면 DB 의 이름을 건드리지 않는다
+   *   — fillMissingProfile 은 name 을 채우지 않는다.
+   * - **연락처**가 없어 기존 회원과 묶을 근거가 없다. 카카오로 가입한 사람이 애플로 로그인하면
+   *   별도 회원이 된다.
+   * - **약관 동의**를 대신 받아 주지 않는다. 동의 이력 없이 가입되고, 마이페이지에서 직접 받는다.
+   */
+  async loginWithApple(code: string, name: string | null): Promise<AuthSession> {
+    const profile = await this.apple.exchangeCodeForProfile(code, name);
+
+    return this.login({
+      providerType: ProviderType.APPLE,
+      providerId: profile.sub,
+      email: profile.email,
+      name: profile.name ?? APPLE_FALLBACK_NAME,
+      consents: [],
+      // 애플이 받아 준 동의가 없다 — 기록은 사용자가 직접 동의할 때 SELF 로 남는다.
+      consentSource: ConsentSource.SELF,
+      refreshToken: profile.refreshToken,
     });
   }
 
@@ -432,6 +474,14 @@ export class AuthService {
       switch (account.providerType) {
         case ProviderType.KAKAO:
           disconnected = await this.kakao.unlink(account.providerId);
+          break;
+        case ProviderType.APPLE:
+          // 애플은 계정 삭제 시 토큰 폐기를 요구한다. 네이버와 같은 방식으로 보관해 둔
+          // 갱신 토큰을 쓰고, 없거나 거절당하면 사용자가 [설정 > Apple 계정 >
+          // 로그인 및 보안 > Apple로 로그인]에서 직접 끊도록 안내한다.
+          disconnected = await this.apple.unlink(
+            account.refreshToken ? this.cipher.decrypt(account.refreshToken) : null,
+          );
           break;
         case ProviderType.NAVER:
           // 보관해 둔 갱신 토큰으로 끊는다. 토큰이 없거나(옛 계정) 네이버가 거절하면 false 가

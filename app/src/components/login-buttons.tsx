@@ -29,6 +29,17 @@ export function LoginButtons({ recent }: { recent?: OAuthProvider | null }) {
       >
         <Image src="/naver.svg" alt="" width={24} height={24} unoptimized />
       </ProviderButton>
+
+      {/* 애플은 선택이 아니다 — 소셜 로그인만 제공하는 앱은 함께 내야 심사를 통과한다
+          (App Store 심사 지침 4.8). 색·심볼은 애플의 표시 규정을 따라 검정 바탕에 흰 로고다. */}
+      <ProviderButton
+        provider="apple"
+        label="Apple로 계속하기"
+        recent={recent === 'apple'}
+        className="bg-black text-white"
+      >
+        <AppleSymbol />
+      </ProviderButton>
     </div>
   );
 }
@@ -81,6 +92,15 @@ function RecentBadge() {
         className="absolute left-1/2 top-full size-0 -translate-x-1/2 border-x-[6.35px] border-t-[11px] border-x-transparent border-t-night/80"
       />
     </span>
+  );
+}
+
+/** 애플 로고 — 애플이 배포하는 마크와 같은 실루엣. 색은 버튼 글자색을 따른다 */
+function AppleSymbol() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
+      <path d="M16.36 12.65c-.02-2.3 1.88-3.4 1.96-3.45-1.07-1.56-2.73-1.78-3.32-1.8-1.41-.14-2.76.83-3.48.83-.72 0-1.83-.81-3-.79-1.55.02-2.98.9-3.77 2.28-1.61 2.79-.41 6.92 1.15 9.18.76 1.11 1.67 2.35 2.86 2.3 1.15-.05 1.58-.74 2.97-.74 1.39 0 1.78.74 2.99.72 1.23-.02 2.02-1.12 2.78-2.24.87-1.29 1.23-2.54 1.25-2.6-.03-.01-2.4-.92-2.42-3.65ZM14.1 5.9c.63-.77 1.06-1.83.94-2.9-.91.04-2.02.61-2.67 1.37-.58.68-1.09 1.77-.95 2.81 1.02.08 2.05-.52 2.68-1.28Z" />
+    </svg>
   );
 }
 
