@@ -20,6 +20,9 @@ importers:
 
   admin:
     dependencies:
+      '@picky/collage':
+        specifier: workspace:*
+        version: link:../packages/collage
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -63,9 +66,18 @@ importers:
 
   app:
     dependencies:
+      '@picky/collage':
+        specifier: workspace:*
+        version: link:../packages/collage
+      '@tosspayments/tosspayments-sdk':
+        specifier: ^2.8.1
+        version: 2.8.1
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      lottie-web:
+        specifier: ^5.13.0
+        version: 5.13.0
       next:
         specifier: ^16.3.5
         version: 16.3.5(@babel/core@7.29.7)(@types/node@22.20.3)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -103,6 +115,8 @@ importers:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
+
+  packages/collage: {}
 
   server:
     dependencies:
@@ -1188,6 +1202,9 @@ packages:
 
   '@tokenizer/token@0.3.0':
     resolution: {integrity: sha512-OvjF+z51L3ov0OyAU0duzsYuvO01PH7x4t6DJx+guahgTnBHkhJdG7soQeTSFLWN3efnHyibZ4Z8l2EuWwJN3A==}
+
+  '@tosspayments/tosspayments-sdk@2.8.1':
+    resolution: {integrity: sha512-DE3PPZZQqa/fb972VgDkuSLtj04gqsjAar111adWK18Yf9Ad7Bk6m+9OH5RBtkHdreCgbR/zZfuy6dL1cfveJQ==}
 
   '@tsconfig/node10@1.0.13':
     resolution: {integrity: sha512-gcLdvR9HO1ZJBypsOGqaP6TFEzb6vIta0KSTLt9NAQ6pXQO3cRgSVyCN6pzYqI9DlJgY71XKO0dpDhCf08b3pg==}
@@ -2970,6 +2987,9 @@ packages:
   loose-envify@1.4.0:
     resolution: {integrity: sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q==}
     hasBin: true
+
+  lottie-web@5.13.0:
+    resolution: {integrity: sha512-+gfBXl6sxXMPe8tKQm7qzLnUy5DUPJPKIyRHwtpCpyUEYjHYRJC/5gjUvdkuO2c3JllrPtHXH5UJJK8LRYl5yQ==}
 
   lru-cache@11.5.2:
     resolution: {integrity: sha512-4pfM1Ff0x50o0tQwb5ucw/RzNyD0/YJME6IVcStalZuMWxdt3sR3huStTtxz4PUmvZfRguvDejasvQ2kifR11g==}
@@ -5009,6 +5029,8 @@ snapshots:
 
   '@tokenizer/token@0.3.0': {}
 
+  '@tosspayments/tosspayments-sdk@2.8.1': {}
+
   '@tsconfig/node10@1.0.13': {}
 
   '@tsconfig/node12@1.0.11': {}
@@ -6978,6 +7000,8 @@ snapshots:
   loose-envify@1.4.0:
     dependencies:
       js-tokens: 4.0.0
+
+  lottie-web@5.13.0: {}
 
   lru-cache@11.5.2: {}
 

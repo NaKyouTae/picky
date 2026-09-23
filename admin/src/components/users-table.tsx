@@ -95,21 +95,26 @@ export function UsersTable() {
   const pageNumber = cursors.length;
   const hasPrev = pageNumber > 1;
   const hasNext = Boolean(page?.nextCursor);
+  /** 행 대신 보여줄 안내 (없으면 null) — 표와 모바일 카드가 같이 쓴다 */
+  const message = loading
+    ? '불러오는 중…'
+    : (error ??
+      (items.length === 0 ? (query ? '검색 결과가 없습니다.' : '사용자가 없습니다.') : null));
 
   return (
     <div>
-      <form onSubmit={handleSearch} className="flex gap-2">
+      <form onSubmit={handleSearch} className="flex flex-wrap gap-2">
         <input
           type="search"
           value={input}
           onChange={(event) => setInput(event.target.value)}
           placeholder="이름 또는 이메일 검색"
           aria-label="이름 또는 이메일 검색"
-          className="h-10 w-72 rounded-lg border border-line bg-white px-3 text-sm outline-none focus:border-brand-500"
+          className="h-11 w-full min-w-0 rounded-lg border border-line bg-white px-3 text-sm outline-none focus:border-brand-500 sm:h-10 sm:w-72"
         />
         <button
           type="submit"
-          className="h-10 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white hover:bg-brand-600"
+          className="h-11 flex-1 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white hover:bg-brand-600 sm:h-10 sm:flex-none"
         >
           검색
         </button>
@@ -117,7 +122,7 @@ export function UsersTable() {
           <button
             type="button"
             onClick={handleReset}
-            className="h-10 rounded-lg border border-line bg-white px-4 text-sm text-ink-sub hover:bg-gray-100"
+            className="h-11 flex-1 rounded-lg border border-line bg-white px-4 text-sm text-ink-sub hover:bg-gray-100 sm:h-10 sm:flex-none"
           >
             초기화
           </button>
@@ -130,7 +135,60 @@ export function UsersTable() {
         </p>
       )}
 
-      <div className="mt-4 overflow-x-auto rounded-xl border border-line bg-white">
+      {/* 모바일 — 14열짜리 표는 가로 스크롤로 읽을 수 없어 카드로 바꾼다 */}
+      <div className="mt-4 space-y-2 lg:hidden">
+        {message ? (
+          <p
+            className={`rounded-xl border border-line bg-white px-4 py-10 text-center text-sm ${
+              error ? 'text-brand-600' : 'text-ink-sub'
+            }`}
+          >
+            {message}
+          </p>
+        ) : (
+          items.map((user) => (
+            <article key={user.id} className="rounded-xl border border-line bg-white p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate font-medium">{user.name}</p>
+                  <p className="truncate text-sm text-ink-sub">{user.email ?? EMPTY}</p>
+                </div>
+                <span
+                  className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[user.status]}`}
+                >
+                  {STATUS_LABELS[user.status]}
+                </span>
+              </div>
+
+              <div className="mt-3 flex items-center gap-2">
+                {user.providers.length === 0 ? (
+                  <span className="text-xs text-ink-sub">연결된 SNS 없음</span>
+                ) : (
+                  PROVIDERS.filter((provider) => user.providers.includes(provider)).map(
+                    (provider) => <ProviderCell key={provider} provider={provider} linked />,
+                  )
+                )}
+                {user.role === 'ADMIN' && (
+                  <span className="ml-auto rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium">
+                    관리자
+                  </span>
+                )}
+              </div>
+
+              <dl className="mt-3 grid grid-cols-[4.5rem_minmax(0,1fr)] gap-y-1 border-t border-line pt-3 text-xs">
+                <Field label="ID" value={shortId(user.id)} mono />
+                <Field label="성별" value={user.gender ? GENDER_LABELS[user.gender] : EMPTY} />
+                <Field label="나이대" value={user.ageRange ?? EMPTY} />
+                <Field label="생일" value={formatBirthday(user.birthday)} />
+                <Field label="가입일" value={formatDateTime(user.createdAt)} />
+                <Field label="수정일" value={formatDateTime(user.updatedAt)} />
+              </dl>
+            </article>
+          ))
+        )}
+      </div>
+
+      <div className="mt-4 hidden overflow-x-auto rounded-xl border border-line bg-white lg:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-line text-left text-ink-sub">
@@ -204,7 +262,7 @@ export function UsersTable() {
                     {shortId(user.id)}
                   </td>
                   <td className="px-4 py-3 font-medium">{user.name}</td>
-                  <td className="px-4 py-3 text-ink-sub">{user.email}</td>
+                  <td className="px-4 py-3 text-ink-sub">{user.email ?? EMPTY}</td>
                   {PROVIDERS.map((provider) => (
                     <td key={provider} className="px-4 py-3 text-center">
                       <ProviderCell
@@ -243,7 +301,7 @@ export function UsersTable() {
             type="button"
             onClick={() => setCursors((prev) => prev.slice(0, -1))}
             disabled={!hasPrev || loading}
-            className="h-9 rounded-lg border border-line bg-white px-4 text-sm hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-white"
+            className="h-11 rounded-lg border border-line bg-white px-4 text-sm hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-white sm:h-9"
           >
             이전
           </button>
@@ -251,12 +309,22 @@ export function UsersTable() {
             type="button"
             onClick={() => setCursors((prev) => [...prev, page?.nextCursor ?? null])}
             disabled={!hasNext || loading}
-            className="h-9 rounded-lg border border-line bg-white px-4 text-sm hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-white"
+            className="h-11 rounded-lg border border-line bg-white px-4 text-sm hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-white sm:h-9"
           >
             다음
           </button>
         </div>
       </div>
     </div>
+  );
+}
+
+/** 모바일 카드의 라벨 + 값 한 줄 (부모 dl 의 2열 그리드에 그대로 얹힌다) */
+function Field({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <>
+      <dt className="text-ink-sub">{label}</dt>
+      <dd className={mono ? 'truncate font-mono' : 'truncate'}>{value}</dd>
+    </>
   );
 }

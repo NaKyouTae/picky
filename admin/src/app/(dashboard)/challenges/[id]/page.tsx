@@ -20,7 +20,7 @@ export default async function EditChallengePage({ params }: { params: Promise<{ 
       <Link href="/challenges" className="text-sm text-ink-sub hover:underline">
         ← 챌린지 목록
       </Link>
-      <h1 className="mt-2 text-2xl font-bold">챌린지 수정</h1>
+      <h1 className="mt-2 text-xl font-bold lg:text-2xl">챌린지 수정</h1>
       <div className="mt-6">
         <ChallengeForm challenge={challenge} categories={categories} />
       </div>

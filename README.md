@@ -113,7 +113,7 @@ Prisma 7 부터 연결 URL 은 `schema.prisma` 가 아닌 곳에서 관리합니
 | `CORS_ORIGINS`                                                                                                                                                                                                                                 | `https://picky.spectrify.kr,http://localhost:21001,http://localhost:21002` |
 | `KAKAO_REDIRECT_URI`                                                                                                                                                                                                                           | `https://picky.spectrify.kr/auth/kakao/callback`                           |
 | `GOOGLE_REDIRECT_URI`                                                                                                                                                                                                                          | `https://picky.spectrify.kr/auth/google/callback`                          |
-| `DATABASE_URL` · `DIRECT_URL` · `SUPABASE_URL` · `SUPABASE_SERVICE_ROLE_KEY` · `JWT_SECRET` · `ADMIN_TOKEN` · `ADMIN_USERNAME` · `ADMIN_PASSWORD` · `KAKAO_REST_API_KEY` · `KAKAO_CLIENT_SECRET` · `GOOGLE_CLIENT_ID` · `GOOGLE_CLIENT_SECRET` | `server/.env` 값을 그대로                                                  |
+| `DATABASE_URL` · `DIRECT_URL` · `SUPABASE_URL` · `SUPABASE_SERVICE_ROLE_KEY` · `JWT_SECRET` · `ADMIN_TOKEN` · `ADMIN_USERNAME` · `ADMIN_PASSWORD` · `KAKAO_REST_API_KEY` · `KAKAO_CLIENT_SECRET` · `KAKAO_ADMIN_KEY` · `GOOGLE_CLIENT_ID` · `GOOGLE_CLIENT_SECRET` | `server/.env` 값을 그대로                                                  |
 
 - 카카오/구글 `REDIRECT_URI` 는 로컬 `.env` 의 `localhost` 값을 쓰면 안 되고, 각 제공자 콘솔에
   등록한 Redirect URI 와 문자 단위로 같아야 합니다.

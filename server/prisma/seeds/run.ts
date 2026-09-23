@@ -1,12 +1,12 @@
 import 'dotenv/config';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { Client } from 'pg';
+import { Client, type QueryResult } from 'pg';
 
 /**
  * 시드 SQL 실행기 — `pnpm db:seed`
  * 마이그레이션과 같은 direct connection(5432) 을 쓴다.
- * SQL 자체가 "같은 제목이 있으면 건너뛰기" 라서 여러 번 실행해도 안전하다.
+ * SQL 자체가 "이미 있으면 건너뛰기" 라서 여러 번 실행해도 안전하다.
  */
 async function main() {
   const connectionString = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
@@ -25,8 +25,12 @@ async function main() {
   });
   await client.connect();
   try {
-    const result = await client.query(sql);
-    console.log(`✔ 챌린지 시드 완료 — ${result.rowCount ?? 0}건 추가`);
+    // 구문이 여러 개면 node-postgres 가 결과를 배열로 돌려준다 (카테고리 + 챌린지).
+    const result = (await client.query(sql)) as QueryResult | QueryResult[];
+    const results = Array.isArray(result) ? result : [result];
+    const inserted = results.reduce((sum, one) => sum + (one.rowCount ?? 0), 0);
+
+    console.log(`✔ 시드 완료 — ${inserted}건 추가`);
   } finally {
     await client.end();
   }

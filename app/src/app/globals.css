@@ -12,10 +12,24 @@
   --color-kakao-pressed: #f2da00;
   --color-kakao-label: rgb(0 0 0 / 0.85);
 
-  /* 구글 로그인 버튼 (구글 브랜드 가이드: 흰 배경 + 회색 테두리) */
-  --color-google-border: #dadce0;
-  --color-google-pressed: #f1f3f4;
-  --color-google-label: #1f1f1f;
+  /* 네이버 브랜드 컬러 (로그인 버튼) */
+  --color-naver: #03a94d;
+
+  /* 메인(홈) 화면 — 다크 터미널 톤.
+     값은 Figma 변수와 1:1 로 맞춘다 (주석이 Figma 쪽 이름) */
+  --color-night: #121212; /* Color/black */
+  --color-night-card: #1c1c1c; /* Color/gray700 */
+  --color-night-raised: #2c2c2c; /* Color/gray600 — night-card 보다 한 단 밝은 표면 */
+  --color-night-sub: #808991; /* Color/gray500 */
+  --color-night-text: #fdfdfe; /* Color/white — 순백(#fff)이 아니다 */
+  --color-point: #abd25d; /* Picky/point */
+  --color-main: #c2e79a; /* Picky/main — point 보다 옅은 초록 (아이콘·선) */
+
+  /* 카테고리 고유색 — 카드 도형(alone/tweens/baby)과 선택 상태 테두리·틴트에 함께 쓴다.
+     도형 이미지에 이미 같은 색이 들어 있으므로 둘이 어긋나면 바로 티가 난다. */
+  --color-picky-red: #ff4040; /* Picky/red — alone */
+  --color-picky-yellow: #ffd200; /* Picky/yellow — tweens */
+  --color-picky-blue: #0078f0; /* Picky/blue — baby */
 
   --color-ink: #191919;
   --color-ink-sub: #6b7280;
@@ -27,8 +41,16 @@
     'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, 'Apple SD Gothic Neo',
     'Malgun Gothic', sans-serif;
 
-  /* 모바일 셸 최대 폭 */
-  --spacing-shell: 430px;
+  /* 메인의 터미널 톤을 만드는 고정폭 서체.
+     JetBrains Mono 에는 한글 글리프가 없어 한글은 뒤 스택으로 떨어진다 —
+     디자인(Figma)도 같은 방식이라 영문만 고정폭으로 보이는 것이 의도된 모습이다. */
+  --font-mono:
+    var(--font-jetbrains-mono), 'D2Coding', 'Apple SD Gothic Neo', 'Malgun Gothic', ui-monospace,
+    monospace;
+
+  /* 모바일 셸 최대 폭 — 디자인(Figma) 프레임이 390px 이라 같은 값을 쓴다.
+     이 값이 디자인과 어긋나면 카드·도형 폭이 전부 비례해서 늘어난다. */
+  --spacing-shell: 390px;
 
   /* 데스크톱에서 셸 경계를 드러내는 그림자 */
   --shadow-shell: 0 0 0 1px rgb(0 0 0 / 0.04), 0 8px 40px rgb(0 0 0 / 0.08);
@@ -43,45 +65,35 @@
   --animate-pop-in: pop-in 0.2s cubic-bezier(0.32, 0.72, 0, 1);
   --animate-pop-out: pop-out 0.15s ease-in forwards;
 
-  /* 챌린지 뽑기 로딩 — 두구두구 */
-  --animate-drumroll: drumroll 0.42s ease-in-out infinite;
-  --animate-drum-shadow: drum-shadow 0.42s ease-in-out infinite;
-  --animate-drum-dot: drum-dot 0.9s ease-in-out infinite;
+  /* 로그인 화면의 타이핑 문구 — 글자 수만큼 계단으로 끊어 한 글자씩 드러낸다 */
+  --animate-typing: typing 1.2s steps(13, end) both;
+  --animate-caret: caret 1s step-end infinite;
 }
 
-/* 좌우로 흔들리며 통통 튀는 움직임 */
-@keyframes drumroll {
-  0%,
-  100% {
-    transform: translateY(0) rotate(-9deg) scale(1);
+/**
+ * 타이핑 — 폭을 0 에서 글자 수만큼 늘린다.
+ * 등폭 글꼴(JetBrains Mono)이라 1ch 가 한 글자와 정확히 같다.
+ * 13ch 는 "Pick your joy" 의 글자 수다 — 문구를 바꾸면 여기도 함께 고쳐야 한다.
+ */
+@keyframes typing {
+  from {
+    width: 0;
   }
-  50% {
-    transform: translateY(-14px) rotate(9deg) scale(1.06);
-  }
-}
-
-/* 튀어오를 때 그림자가 작아져 높이가 느껴지게 한다 */
-@keyframes drum-shadow {
-  0%,
-  100% {
-    transform: scaleX(1);
-    opacity: 0.18;
-  }
-  50% {
-    transform: scaleX(0.6);
-    opacity: 0.08;
+  to {
+    width: 13ch;
   }
 }
 
-@keyframes drum-dot {
-  0%,
-  100% {
-    opacity: 0.25;
-    transform: scale(0.8);
-  }
-  50% {
+/* 커서 깜빡임 — 마지막이 다시 보이는 상태라, 모션을 줄인 설정에서도 언더바가 남는다 */
+@keyframes caret {
+  from {
     opacity: 1;
-    transform: scale(1);
+  }
+  50% {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 

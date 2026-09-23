@@ -23,7 +23,7 @@ pnpm + Turborepo 모노레포:
 ### 프론트
 
 - Next.js 16 + React 19 + Tailwind CSS v4
-- app: 모바일 전용 셸(`max-w-shell`, 430px)
+- app: 모바일 전용 셸(`max-w-shell`, 390px — Figma 프레임 폭과 동일)
 - admin: 사이드바 레이아웃
 
 ## DB 규칙
@@ -78,7 +78,7 @@ pnpm + Turborepo 모노레포:
 
 ## 컨벤션
 
-- **app 은 모바일 전용 레이아웃** — `max-w-shell`(430px) 고정. `md:` / `lg:` 브레이크포인트 사용 금지
+- **app 은 모바일 전용 레이아웃** — `max-w-shell`(390px, 디자인 프레임 폭) 고정. `md:` / `lg:` 브레이크포인트 사용 금지
   - safe-area 는 `safe-top` / `safe-bottom` 유틸리티
   - 터치 타깃 최소 44px, input `font-size: 16px`(iOS 확대 방지), 높이는 `dvh`
 - **BFF 프록시 패턴** — 브라우저는 `/api/*`(Next Route Handler) 만 호출. 서버 주소·토큰은 노출하지 않음
@@ -99,9 +99,14 @@ pnpm lint         # 전체 lint
 pnpm typecheck    # 전체 타입체크
 
 pnpm db:generate  # prisma generate
-pnpm db:migrate   # prisma migrate dev
+pnpm db:migrate   # prisma migrate dev (새 마이그레이션을 만들 때)
 pnpm db:studio    # prisma studio
 ```
+
+`pnpm dev` / `pnpm dev:server` 는 서버를 띄우기 전에 `db:sync`(= `migrate deploy` + `db:seed`)
+를 먼저 돌린다. 그래서 스키마와 기본 콘텐츠(카테고리 3개·챌린지 30개)가 항상 준비된 상태로
+시작한다. 시드 SQL 은 `ON CONFLICT DO NOTHING` 이라 여러 번 실행해도 데이터가 늘지 않는다.
+DB 에 닿지 못하면 경고만 남기고 서버는 그대로 뜬다 (DB 없이도 기동되던 기존 동작 유지).
 
 ## 배포
 

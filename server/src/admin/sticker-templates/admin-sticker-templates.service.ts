@@ -6,6 +6,7 @@ import { SupabaseService } from '../../common/supabase/supabase.service';
 import type { UploadedImage } from '../../common/types/uploaded-image';
 import type { StickerTemplateStatus } from '../../generated/prisma/enums';
 import type { CreateStickerTemplateDto } from './dto/create-sticker-template.dto';
+import type { StickerSlotDto } from './dto/sticker-slot.dto';
 import type { ListAdminStickerTemplatesDto } from './dto/list-admin-sticker-templates.dto';
 import type { ReorderStickerTemplatesDto } from './dto/reorder-sticker-templates.dto';
 import type { UpdateStickerTemplateDto } from './dto/update-sticker-template.dto';
@@ -30,8 +31,14 @@ export interface AdminStickerTemplateRow {
   status: StickerTemplateStatus;
   imageUrl: string;
   imagePath: string;
+  /** 고객용 미리보기 — 없으면 imageUrl 로 대신한다 */
+  previewImageUrl: string | null;
+  previewImagePath: string | null;
   imageWidth: number;
   imageHeight: number;
+  slots: unknown;
+  slotCount: number;
+  isPaid: boolean;
   displayOrder: number;
   createdAt: Date;
   updatedAt: Date;
@@ -50,12 +57,29 @@ const TEMPLATE_SELECT = {
   status: true,
   imageUrl: true,
   imagePath: true,
+  previewImageUrl: true,
+  previewImagePath: true,
   imageWidth: true,
   imageHeight: true,
+  slots: true,
+  slotCount: true,
+  isPaid: true,
   displayOrder: true,
   createdAt: true,
   updatedAt: true,
 } as const;
+
+/**
+ * slots 와 slotCount 를 함께 만든다.
+ * 길이를 따로 저장하므로 한쪽만 바꾸면 목록의 칸 수가 거짓이 된다 — 늘 같이 쓴다.
+ */
+function slotFields(slots: StickerSlotDto[]) {
+  return {
+    // 좌표만 남긴다 — DTO 인스턴스를 그대로 넣으면 다른 필드가 JSON 에 섞일 수 있다.
+    slots: slots.map(({ cx, cy, w, h, angle }) => ({ cx, cy, w, h, angle })),
+    slotCount: slots.length,
+  };
+}
 
 @Injectable()
 export class AdminStickerTemplatesService {
@@ -138,8 +162,11 @@ export class AdminStickerTemplatesService {
         imagePath: assertImagePath(dto.imagePath),
         // 공개 URL 은 클라이언트가 보낸 값을 믿지 않고 경로에서 직접 만든다.
         imageUrl: this.supabase.getPublicUrl(dto.imagePath),
+        ...previewFields(dto.previewImagePath, (path) => this.supabase.getPublicUrl(path)),
         imageWidth: dto.imageWidth,
         imageHeight: dto.imageHeight,
+        ...slotFields(dto.slots),
+        isPaid: dto.isPaid,
         displayOrder: (last._max.displayOrder ?? -1) + 1,
       },
       select: TEMPLATE_SELECT,
@@ -153,21 +180,33 @@ export class AdminStickerTemplatesService {
     const nextPath = dto.imagePath ? assertImagePath(dto.imagePath) : undefined;
     const replacingImage = Boolean(nextPath && nextPath !== current.imagePath);
 
+    const nextPreview = dto.previewImagePath ? assertImagePath(dto.previewImagePath) : undefined;
+    const replacingPreview = Boolean(nextPreview && nextPreview !== current.previewImagePath);
+
     const updated = await this.prisma.stickerTemplate.update({
       where: { id },
       data: {
         title: dto.title,
         status: dto.status,
-        ...(nextPath ? { imagePath: nextPath, imageUrl: this.supabase.getPublicUrl(nextPath) } : {}),
+        ...(nextPath
+          ? { imagePath: nextPath, imageUrl: this.supabase.getPublicUrl(nextPath) }
+          : {}),
+        ...previewFields(nextPreview, (path) => this.supabase.getPublicUrl(path)),
         imageWidth: dto.imageWidth,
         imageHeight: dto.imageHeight,
+        ...(dto.slots ? slotFields(dto.slots) : {}),
+        isPaid: dto.isPaid,
       },
       select: TEMPLATE_SELECT,
     });
 
     // 이미지를 교체했으면 이전 파일은 더 이상 참조되지 않는다. 실패해도 저장은 유효하므로
     // SupabaseService 가 로그만 남기고 삼킨다.
-    if (replacingImage) await this.supabase.remove([current.imagePath]);
+    const stale = [
+      ...(replacingImage ? [current.imagePath] : []),
+      ...(replacingPreview && current.previewImagePath ? [current.previewImagePath] : []),
+    ];
+    if (stale.length > 0) await this.supabase.remove(stale);
 
     return updated;
   }
@@ -195,8 +234,20 @@ export class AdminStickerTemplatesService {
   async remove(id: string): Promise<void> {
     const template = await this.get(id);
     await this.prisma.stickerTemplate.delete({ where: { id } });
-    await this.supabase.remove([template.imagePath]);
+    await this.supabase.remove(
+      [template.imagePath, template.previewImagePath].filter((path): path is string => !!path),
+    );
   }
+}
+
+/**
+ * 고객용 미리보기 경로·URL 을 함께 만든다 (경로를 보내지 않았으면 건드리지 않는다).
+ * URL 은 클라이언트가 보낸 값을 믿지 않고 경로에서 직접 만든다 — imageUrl 과 같은 규칙이다.
+ */
+function previewFields(path: string | undefined, toUrl: (path: string) => string) {
+  if (!path) return {};
+  const safe = assertImagePath(path);
+  return { previewImagePath: safe, previewImageUrl: toUrl(safe) };
 }
 
 /** 업로드 API 가 만든 경로만 받는다 — 다른 디렉터리의 파일을 가리키거나 지우지 못하도록 */

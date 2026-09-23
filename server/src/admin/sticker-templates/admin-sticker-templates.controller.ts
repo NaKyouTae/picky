@@ -18,10 +18,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AdminGuard } from '../../common/guards/admin.guard';
 import type { UploadedImage } from '../../common/types/uploaded-image';
-import {
-  AdminStickerTemplatesService,
-  MAX_IMAGE_BYTES,
-} from './admin-sticker-templates.service';
+import { AdminStickerTemplatesService, MAX_IMAGE_BYTES } from './admin-sticker-templates.service';
 import { CreateStickerTemplateDto } from './dto/create-sticker-template.dto';
 import { ListAdminStickerTemplatesDto } from './dto/list-admin-sticker-templates.dto';
 import { ReorderStickerTemplatesDto } from './dto/reorder-sticker-templates.dto';

@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist .turbo",
     "db:generate": "prisma generate",
+    "db:sync": "prisma migrate deploy && pnpm db:seed || echo '⚠ DB 준비 실패 — 스키마·시드가 최신이 아닐 수 있습니다 (DIRECT_URL 확인). 서버는 그대로 뜹니다.'",
     "db:migrate": "prisma migrate dev",
     "db:seed": "ts-node prisma/seeds/run.ts",
     "db:deploy": "prisma migrate deploy",

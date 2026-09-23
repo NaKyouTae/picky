@@ -2,25 +2,30 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { useConsents, type OptionalConsentKey } from '@/lib/use-consents';
+import { type Consents, type OptionalConsentKey } from '@/lib/consent-format';
+import { useConsents } from '@/lib/use-consents';
 import { cn } from '@/lib/utils';
 
 /**
- * 마이페이지의 선택 동의 행 — 행을 누르면 상세 문서로 가고, 토글은 그 자리에서 켜고 끈다.
+ * 마이페이지의 선택 동의 행 — 행을 누르면 상세 문서로 가고, on/off 는 그 자리에서 켜고 끈다.
  * 철회 확인은 상세 화면의 동의 바에서 하고, 여기서는 즉시 반영한다(되돌리기 쉬운 조작).
+ *
+ * 디자인(Figma 4658:3858)의 on/off 는 스위치가 아니라 두 칸짜리 세그먼트다 —
+ * 켜진 쪽이 point 색, 꺼진 쪽이 gray600 으로 칠해진다.
  */
 export function ConsentMenuRow({
   consentKey,
   label,
   href,
-  icon,
+  initialConsents,
 }: {
   consentKey: OptionalConsentKey;
   label: string;
   href: string;
-  icon: React.ReactNode;
+  /** 서버 컴포넌트가 미리 읽어 온 동의 상태 — 있으면 첫 조회를 건너뛴다 */
+  initialConsents?: Consents | null;
 }) {
-  const { consents, loading, updating, setConsent } = useConsents();
+  const { consents, loading, updating, setConsent } = useConsents(initialConsents);
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
@@ -30,6 +35,7 @@ export function ConsentMenuRow({
   }, [toast]);
 
   const state = consents?.[consentKey];
+  const agreed = state?.agreed ?? false;
   const pending = updating === consentKey;
 
   async function toggle() {
@@ -45,32 +51,38 @@ export function ConsentMenuRow({
 
   return (
     <>
-      <div className="flex min-h-12 items-center gap-2.5 px-5">
-        <Link href={href} className="flex min-w-0 flex-1 items-center gap-2.5 py-2 active:opacity-60">
-          <span className="flex size-4 shrink-0 items-center justify-center text-ink">{icon}</span>
-          <span className="truncate text-base font-medium">{label}</span>
+      {/* 높이 처리는 같은 목록의 MenuLink 와 맞춘다 — 본문 24px + 위아래 5px */}
+      <div className="flex items-center justify-between gap-3">
+        <Link
+          href={href}
+          className="min-w-0 flex-1 truncate py-[5px] text-[16px] leading-6 active:opacity-60"
+        >
+          {label}
         </Link>
 
         <button
           type="button"
           onClick={toggle}
           disabled={loading || !state || pending}
-          aria-label={`${label} ${state?.agreed ? '철회' : '동의'}`}
-          aria-pressed={state?.agreed ?? false}
-          className="shrink-0 disabled:opacity-50"
+          aria-label={`${label} ${agreed ? '철회' : '동의'}`}
+          aria-pressed={agreed}
+          className="flex h-[34px] w-[72px] shrink-0 items-stretch py-[5px] text-[14px] leading-none disabled:opacity-50"
         >
           <span
             className={cn(
-              'relative flex h-6 w-11 items-center rounded-full transition-colors',
-              state?.agreed ? 'bg-brand-500' : 'bg-line',
+              'flex flex-1 items-center justify-center',
+              agreed ? 'bg-point' : 'bg-night-raised',
             )}
           >
-            <span
-              className={cn(
-                'size-5 rounded-full bg-white shadow transition-transform',
-                state?.agreed ? 'translate-x-[22px]' : 'translate-x-[2px]',
-              )}
-            />
+            on
+          </span>
+          <span
+            className={cn(
+              'flex flex-1 items-center justify-center',
+              agreed ? 'bg-night-raised' : 'bg-point',
+            )}
+          >
+            off
           </span>
         </button>
       </div>
@@ -78,7 +90,7 @@ export function ConsentMenuRow({
       {toast && (
         <div
           role="status"
-          className="fixed left-1/2 z-50 -translate-x-1/2 rounded-full bg-black/80 px-4 py-2 text-[13px] text-white"
+          className="fixed left-1/2 z-50 -translate-x-1/2 rounded-full bg-night-raised px-4 py-2 text-[13px] text-night-text"
           style={{ bottom: 'calc(var(--safe-bottom) + 32px)' }}
         >
           {toast}

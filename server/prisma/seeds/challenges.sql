@@ -1,10 +1,22 @@
--- 챌린지 초기 콘텐츠 (카테고리별 10개, 모두 공개 상태)
--- 같은 제목이 이미 있으면 건너뛰므로 여러 번 실행해도 안전합니다.
+-- 초기 콘텐츠 — 카테고리 3개 + 카테고리별 챌린지 10개 (모두 공개 상태)
 -- 실행: pnpm --filter @picky/server db:seed
 --
--- 카테고리는 enum 이 아니라 challenge_categories 테이블이다.
--- 아래 VALUES 의 SOLO/COUPLE/KIDS 는 카테고리 **이름**으로 옮겨 id 를 찾는다.
--- 이름이 없으면 그 행은 삽입되지 않는다 (JOIN 이 걸러낸다).
+-- 이미 있으면 건너뛰므로 여러 번 실행해도 안전합니다.
+-- 카테고리는 enum 이 아니라 challenge_categories 테이블이고,
+-- 아래 VALUES 의 SOLO/COUPLE/KIDS 는 고정 UUID 로 옮겨 id 를 찾는다.
+
+-- ── 카테고리 ─────────────────────────────────────────
+-- 이름·설명은 디자인(Figma "메인" 4584:5334) 워딩이다. 바뀔 수 있는 값이라
+-- 챌린지를 붙일 때는 이름이 아니라 아래 고정 UUID 로 조인한다.
+INSERT INTO "challenge_categories" (
+  "id", "name", "emoji", "description", "status", "display_order", "created_at", "updated_at"
+) VALUES
+  ('11111111-1111-4111-8111-111111111111', '혼자서', '🙂', '오롯이 나에게 집중하는 시간',   'PUBLISHED', 1, now(), now()),
+  ('22222222-2222-4222-8222-222222222222', '함께',   '💞', '같이니까, 뭐든 조금 더 재밌게', 'PUBLISHED', 2, now(), now()),
+  ('33333333-3333-4333-8333-333333333333', '아기랑', '🧸', '평범한 하루도 새로운 추억으로', 'PUBLISHED', 3, now(), now())
+ON CONFLICT ("id") DO NOTHING;
+
+-- ── 챌린지 ───────────────────────────────────────────
 
 INSERT INTO "challenges" (
   "id", "category_id", "status", "title", "description", "duration", "emoji", "created_at", "updated_at"
@@ -57,12 +69,13 @@ FROM (
     ('KIDS', '버스 타고 처음 가보는 놀이터 가기', '한 번도 안 가본 동네 놀이터를 목적지로 정하고 버스를 탑니다.', '반나절', '🚌'),
     ('KIDS', '카메라를 아이에게 맡기기', '오늘 사진은 전부 아이가 찍습니다. 아이 눈높이에서 본 하루를 나중에 같이 보세요.', '하루', '📸')
 ) AS v(category, title, description, duration, emoji)
--- SOLO → '혼자', COUPLE → '둘이서', KIDS → '아이랑'
+-- 카테고리는 고정 UUID 로 묶는다 — 이름은 디자인에 따라 바뀔 수 있는 값이라
+-- 이름으로 조인하면 워딩을 고칠 때마다 시드가 조용히 0건이 된다.
 JOIN "challenge_categories" cat
-  ON cat.name = CASE v.category
-       WHEN 'SOLO'   THEN '혼자'
-       WHEN 'COUPLE' THEN '둘이서'
-       WHEN 'KIDS'   THEN '아이랑'
+  ON cat.id = CASE v.category
+       WHEN 'SOLO'   THEN '11111111-1111-4111-8111-111111111111'::uuid
+       WHEN 'COUPLE' THEN '22222222-2222-4222-8222-222222222222'::uuid
+       WHEN 'KIDS'   THEN '33333333-3333-4333-8333-333333333333'::uuid
      END
 WHERE NOT EXISTS (
   SELECT 1 FROM "challenges" c WHERE c.title = v.title

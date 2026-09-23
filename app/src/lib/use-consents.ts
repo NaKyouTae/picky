@@ -1,33 +1,30 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import type { ConsentKey, Consents } from '@/lib/consent-format';
 
-export type ConsentKey = 'terms' | 'privacy' | 'marketing' | 'thirdParty';
-/** 동의만 받는 항목 — 철회하면 서비스를 쓸 수 없어 회원 탈퇴로만 거둘 수 있다 */
-export type RequiredConsentKey = 'terms' | 'privacy';
-/** 켜고 끌 수 있는 항목 */
-export type OptionalConsentKey = 'marketing' | 'thirdParty';
-
-export type ConsentState = { agreed: boolean; agreedAt: string | null };
-export type MarketingConsentState = ConsentState & {
-  expiresAt: string | null;
-  expired: boolean;
-};
-
-export type Consents = {
-  terms: ConsentState;
-  privacy: ConsentState;
-  marketing: MarketingConsentState;
-  thirdParty: ConsentState;
-};
+// 타입·포맷터는 `lib/consent-format.ts` 에 있다 (서버 컴포넌트도 쓰기 때문).
+// 기존 import 경로를 깨지 않도록 여기서도 타입을 다시 내보낸다.
+export type {
+  ConsentKey,
+  ConsentSource,
+  ConsentState,
+  Consents,
+  MarketingConsentState,
+  OptionalConsentKey,
+  RequiredConsentKey,
+} from '@/lib/consent-format';
 
 /**
  * 동의 상태 조회·변경.
  * 서버 주소는 감춰져 있으므로 BFF 프록시(/api/auth/consents)를 통해 NestJS 로 간다.
+ *
+ * `initial` 을 주면(서버 컴포넌트에서 미리 읽어 온 값) 첫 조회를 건너뛴다 —
+ * 같은 화면에 이 훅을 쓰는 행이 여러 개 있어도 요청이 늘어나지 않고, 깜빡임도 없다.
  */
-export function useConsents() {
-  const [consents, setConsents] = useState<Consents | null>(null);
-  const [loading, setLoading] = useState(true);
+export function useConsents(initial?: Consents | null) {
+  const [consents, setConsents] = useState<Consents | null>(initial ?? null);
+  const [loading, setLoading] = useState(!initial);
   const [updating, setUpdating] = useState<ConsentKey | null>(null);
 
   const refresh = useCallback(async () => {
@@ -37,6 +34,9 @@ export function useConsents() {
   }, []);
 
   useEffect(() => {
+    // 서버에서 받아 온 값이 있으면 그대로 쓴다 (변경은 아래 setConsent 가 갱신한다).
+    if (initial) return;
+
     // 응답이 늦게 와도 언마운트된 화면에 쓰지 않는다.
     let alive = true;
     void (async () => {
@@ -48,7 +48,7 @@ export function useConsents() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [initial]);
 
   /** 낙관적 반영 — 실패하면 이전 상태로 되돌리고 throw 하므로 호출부가 안내를 띄운다. */
   const setConsent = useCallback(
@@ -58,6 +58,7 @@ export function useConsents() {
 
       const previous = consents;
       const nowIso = new Date().toISOString();
+      // 화면에서 직접 바꾼 것이라 출처는 SELF — 서버 응답이 오면 어차피 덮인다.
       if (key === 'marketing') {
         const expires = new Date();
         expires.setFullYear(expires.getFullYear() + 2);
@@ -66,12 +67,16 @@ export function useConsents() {
           marketing: {
             agreed: next,
             agreedAt: next ? nowIso : null,
+            source: next ? 'SELF' : null,
             expiresAt: next ? expires.toISOString() : null,
             expired: false,
           },
         });
       } else {
-        setConsents({ ...consents, [key]: { agreed: next, agreedAt: next ? nowIso : null } });
+        setConsents({
+          ...consents,
+          [key]: { agreed: next, agreedAt: next ? nowIso : null, source: next ? 'SELF' : null },
+        });
       }
 
       try {
@@ -104,24 +109,4 @@ async function fetchConsents(): Promise<Consents | null> {
   } catch {
     return null;
   }
-}
-
-/** "2026. 09. 21. 동의" — 동의한 적이 없으면 빈 문자열 */
-export function formatAgreedAt(iso: string | null): string {
-  const date = iso ? new Date(iso) : null;
-  if (!date || Number.isNaN(date.getTime())) return '';
-  return `${formatDate(date)} 동의`;
-}
-
-/** "2028. 09. 21. 만료" — 만료일이 없으면 빈 문자열 */
-export function formatExpiresAt(iso: string | null): string {
-  const date = iso ? new Date(iso) : null;
-  if (!date || Number.isNaN(date.getTime())) return '';
-  return `${formatDate(date)} 만료`;
-}
-
-function formatDate(date: Date): string {
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${date.getFullYear()}. ${month}. ${day}.`;
 }

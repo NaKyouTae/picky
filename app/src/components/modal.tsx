@@ -18,6 +18,9 @@ export function Modal({
   onRequestClose,
   onClosed,
   labelledBy,
+  panelClassName,
+  overlayClassName,
+  containerClassName,
   children,
 }: {
   state: DialogState;
@@ -27,6 +30,12 @@ export function Modal({
   onClosed: () => void;
   /** 제목 요소의 id */
   labelledBy: string;
+  /** 패널 배경·글자색 교체용 (기본은 밝은 톤 — 다크 화면에서 쓸 때만 넘긴다) */
+  panelClassName?: string;
+  /** 뒷배경 농도 교체용 (기본 40%) */
+  overlayClassName?: string;
+  /** 패널 좌우 여백 교체용 — 디자인마다 카드 폭이 달라서 연다 (기본 32px) */
+  containerClassName?: string;
   children: React.ReactNode;
 }) {
   const closing = state === 'closing';
@@ -51,11 +60,17 @@ export function Modal({
         onClick={onRequestClose}
         className={cn(
           'fixed inset-0 z-50 bg-black/40',
+          overlayClassName,
           closing ? 'animate-overlay-out' : 'animate-overlay-in',
         )}
       />
 
-      <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center px-8">
+      <div
+        className={cn(
+          'pointer-events-none fixed inset-0 z-50 flex items-center justify-center px-8',
+          containerClassName,
+        )}
+      >
         <div
           role="dialog"
           aria-modal="true"
@@ -66,6 +81,7 @@ export function Modal({
           }}
           className={cn(
             'pointer-events-auto w-full rounded-2xl bg-white px-6 pb-6 pt-7',
+            panelClassName,
             closing ? 'animate-pop-out' : 'animate-pop-in',
           )}
         >

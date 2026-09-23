@@ -3,11 +3,12 @@
 import { useEffect, useState } from 'react';
 import { Modal, type DialogState } from '@/components/modal';
 import {
-  formatAgreedAt,
+  formatConsentStatus,
   formatExpiresAt,
-  useConsents,
   type ConsentKey,
-} from '@/lib/use-consents';
+  type Consents,
+} from '@/lib/consent-format';
+import { useConsents } from '@/lib/use-consents';
 import { cn } from '@/lib/utils';
 
 type Config =
@@ -46,8 +47,15 @@ const CONFIG: Record<ConsentKey, Config> = {
  * 필수 항목은 동의만 받고(철회는 회원 탈퇴), 선택 항목은 토글로 켜고 끈다.
  * 앱 셸이 translate 로 fixed 의 컨테이닝 블록이라 이 바는 셸 하단에 정확히 붙는다.
  */
-export function ConsentBar({ consentKey }: { consentKey: ConsentKey }) {
-  const { consents, loading, updating, setConsent } = useConsents();
+export function ConsentBar({
+  consentKey,
+  initialConsents,
+}: {
+  consentKey: ConsentKey;
+  /** 서버 컴포넌트가 미리 읽어 온 동의 상태 — 있으면 첫 조회를 건너뛴다 */
+  initialConsents?: Consents | null;
+}) {
+  const { consents, loading, updating, setConsent } = useConsents(initialConsents);
   const [dialog, setDialog] = useState<DialogState>('closed');
   const [toast, setToast] = useState<string | null>(null);
 
@@ -62,13 +70,7 @@ export function ConsentBar({ consentKey }: { consentKey: ConsentKey }) {
   const pending = updating === consentKey;
 
   // 상태를 아직 모를 때 '동의 안 함' 으로 단정하지 않는다.
-  const status = !state
-    ? loading
-      ? '동의 상태 확인 중…'
-      : ''
-    : state.agreed
-      ? formatAgreedAt(state.agreedAt)
-      : '아직 동의하지 않았어요';
+  const status = !state ? (loading ? '동의 상태 확인 중…' : '') : formatConsentStatus(state);
 
   const expiresAt =
     consentKey === 'marketing' && consents?.marketing.agreed

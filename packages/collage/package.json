@@ -1,0 +1,11 @@
+{
+  "name": "@picky/collage",
+  "version": "0.0.0",
+  "private": true,
+  "description": "콜라주 템플릿 기하·합성 — 어드민(슬롯 계산)과 앱(합성)이 같은 코드를 써야 결과가 어긋나지 않는다",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

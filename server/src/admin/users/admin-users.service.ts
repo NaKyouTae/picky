@@ -7,7 +7,8 @@ const DEFAULT_TAKE = 20;
 
 export interface AdminUserRow {
   id: string;
-  email: string;
+  /** 선택 동의 — 제공자에게 받지 못하면 비어 있다 */
+  email: string | null;
   name: string;
   role: UserRole;
   status: UserStatus;

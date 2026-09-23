@@ -1,9 +1,9 @@
 /** 서버(NestJS)의 admin-users 응답 타입 — 브라우저/서버 컴포넌트 공용 */
 
-export type ProviderType = 'KAKAO' | 'NAVER' | 'GOOGLE';
+export type ProviderType = 'KAKAO' | 'NAVER';
 
 /** 테이블에 제공자 컬럼을 그리는 순서 */
-export const PROVIDERS: ProviderType[] = ['KAKAO', 'NAVER', 'GOOGLE'];
+export const PROVIDERS: ProviderType[] = ['KAKAO', 'NAVER'];
 
 export type UserStatus = 'ACTIVE' | 'SUSPENDED' | 'DELETED';
 
@@ -11,7 +11,8 @@ export type Gender = 'MALE' | 'FEMALE' | 'OTHER';
 
 export type AdminUser = {
   id: string;
-  email: string;
+  /** 선택 동의 — 제공자에게 받지 못하면 null */
+  email: string | null;
   name: string;
   role: 'USER' | 'ADMIN';
   status: UserStatus;

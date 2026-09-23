@@ -1,22 +1,24 @@
 'use client';
 
 import Image from 'next/image';
-import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Modal } from '@/components/modal';
 import { StickerTemplateForm } from '@/components/sticker-template-form';
 import {
   STICKER_LIST_LIMIT,
+  STICKER_PRICING_LABELS,
+  STICKER_PRICING_STYLES,
   STICKER_STATUSES,
   STICKER_STATUS_LABELS,
   STICKER_STATUS_STYLES,
   type AdminStickerTemplate,
   type AdminStickerTemplatePage,
   type StickerTemplateStatus,
+  toPricing,
 } from '@/lib/sticker-templates';
 import { formatDateTime } from '@/lib/users';
 
-const COLUMN_COUNT = 5;
+const COLUMN_COUNT = 6;
 
 /** 조회 조건 — 필터가 걸리면 전체 순서를 알 수 없으므로 드래그를 막는다 */
 type Filters = { query: string; status: StickerTemplateStatus | '' };
@@ -42,7 +44,6 @@ export function StickerTemplatesTable() {
   /** 저장 후 같은 조건으로 다시 불러오기 위한 값 */
   const [reloadToken, setReloadToken] = useState(0);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
-  const [creating, setCreating] = useState(false);
 
   /** 드래그 중인 행의 인덱스 (null 이면 드래그 중 아님) */
   const [dragging, setDragging] = useState<number | null>(null);
@@ -50,6 +51,8 @@ export function StickerTemplatesTable() {
   const [dragOver, setDragOver] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [orderError, setOrderError] = useState<string | null>(null);
+  /** 모달에서 수정·삭제할 템플릿 (null 이면 모달 닫힘) */
+  const [editing, setEditing] = useState<AdminStickerTemplate | null>(null);
 
   const key = JSON.stringify([filters, reloadToken]);
   const loading = !loaded || loaded.key !== key;
@@ -99,6 +102,15 @@ export function StickerTemplatesTable() {
   const filtered = Boolean(filters.query || filters.status);
   // 필터가 걸린 목록은 일부만 보이므로 그 순서를 전체 순서로 저장하면 안 된다.
   const sortable = !filtered && !loading && !error && items.length > 1;
+  /** 행 대신 보여줄 안내 (없으면 null) — 표와 모바일 카드가 같이 쓴다 */
+  const message = loading
+    ? '불러오는 중…'
+    : (error ??
+      (items.length === 0
+        ? filtered
+          ? '조건에 맞는 템플릿이 없습니다.'
+          : '등록된 템플릿이 없습니다.'
+        : null));
 
   /** 드래그한 행을 목표 자리로 옮기고 서버에 전체 순서를 저장한다 */
   async function commitReorder(from: number, to: number) {
@@ -137,7 +149,7 @@ export function StickerTemplatesTable() {
             event.preventDefault();
             applyFilters({ ...filters, query: input.trim() });
           }}
-          className="flex gap-2"
+          className="flex w-full gap-2 sm:w-auto"
         >
           <input
             type="search"
@@ -145,11 +157,11 @@ export function StickerTemplatesTable() {
             onChange={(event) => setInput(event.target.value)}
             placeholder="제목 검색"
             aria-label="제목 검색"
-            className="h-10 w-60 rounded-lg border border-line bg-white px-3 text-sm outline-none focus:border-brand-500"
+            className="h-11 w-full min-w-0 rounded-lg border border-line bg-white px-3 text-sm outline-none focus:border-brand-500 sm:h-10 sm:w-60"
           />
           <button
             type="submit"
-            className="h-10 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white hover:bg-brand-600"
+            className="h-11 shrink-0 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white hover:bg-brand-600 sm:h-10"
           >
             검색
           </button>
@@ -161,7 +173,7 @@ export function StickerTemplatesTable() {
             applyFilters({ ...filters, status: event.target.value as StickerTemplateStatus | '' })
           }
           aria-label="상태 필터"
-          className="h-10 rounded-lg border border-line bg-white px-3 text-sm outline-none focus:border-brand-500"
+          className="h-11 min-w-0 flex-1 rounded-lg border border-line bg-white px-3 text-sm outline-none focus:border-brand-500 sm:h-10 sm:flex-none"
         >
           <option value="">전체 상태</option>
           {STICKER_STATUSES.map((status) => (
@@ -178,31 +190,107 @@ export function StickerTemplatesTable() {
               setInput('');
               applyFilters(EMPTY_FILTERS);
             }}
-            className="h-10 rounded-lg border border-line bg-white px-4 text-sm text-ink-sub hover:bg-gray-100"
+            className="h-11 rounded-lg border border-line bg-white px-4 text-sm text-ink-sub hover:bg-gray-100 sm:h-10"
           >
             초기화
           </button>
         )}
-
-        <button
-          type="button"
-          onClick={() => setCreating(true)}
-          className="ml-auto h-10 rounded-lg bg-ink px-4 text-sm font-semibold text-white hover:opacity-90"
-        >
-          템플릿 등록
-        </button>
       </div>
 
       <p className="mt-3 text-sm text-ink-sub">
-        {filtered
-          ? '검색·필터를 끄면 행을 끌어 순서를 바꿀 수 있습니다.'
-          : '행 왼쪽 손잡이를 끌어 앱에 보이는 순서를 바꿉니다. 위에 있을수록 먼저 보입니다.'}
+        {filtered ? (
+          '검색·필터를 끄면 순서를 바꿀 수 있습니다.'
+        ) : (
+          <>
+            {/* HTML5 드래그는 터치에서 동작하지 않으므로 모바일은 화살표 버튼으로 옮긴다 */}
+            <span className="lg:hidden">
+              카드의 ▲▼ 로 앱에 보이는 순서를 바꿉니다. 위에 있을수록 먼저 보입니다.
+            </span>
+            <span className="hidden lg:inline">
+              행 왼쪽 손잡이를 끌어 앱에 보이는 순서를 바꿉니다. 위에 있을수록 먼저 보입니다.
+            </span>
+          </>
+        )}
         {saving && <span className="ml-2 text-ink">저장 중…</span>}
       </p>
 
       {orderError && <p className="mt-2 text-sm text-brand-600">{orderError}</p>}
 
-      <div className="mt-2 overflow-x-auto rounded-xl border border-line bg-white">
+      {/* 모바일 — 표 대신 카드. 카드를 누르면 수정 모달, ▲▼ 로 순서를 바꾼다 */}
+      <div className="mt-2 space-y-2 lg:hidden">
+        {message ? (
+          <p
+            className={`rounded-xl border border-line bg-white px-4 py-10 text-center text-sm ${
+              error ? 'text-brand-600' : 'text-ink-sub'
+            }`}
+          >
+            {message}
+          </p>
+        ) : (
+          items.map((template, index) => (
+            <div
+              key={template.id}
+              className="flex items-center gap-2 rounded-xl border border-line bg-white p-3"
+            >
+              {sortable && (
+                <div className="flex shrink-0 flex-col gap-1">
+                  <MoveButton
+                    label={`${template.title} 위로`}
+                    disabled={index === 0 || saving}
+                    onClick={() => void commitReorder(index, index - 1)}
+                  >
+                    ▲
+                  </MoveButton>
+                  <MoveButton
+                    label={`${template.title} 아래로`}
+                    disabled={index === items.length - 1 || saving}
+                    onClick={() => void commitReorder(index, index + 1)}
+                  >
+                    ▼
+                  </MoveButton>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setEditing(template)}
+                className="flex min-w-0 flex-1 items-center gap-3 text-left"
+              >
+                <span className="relative size-14 shrink-0 overflow-hidden rounded-md bg-gray-100">
+                  <Image
+                    src={template.previewImageUrl ?? template.imageUrl}
+                    alt=""
+                    fill
+                    sizes="56px"
+                    unoptimized
+                    className="object-contain"
+                  />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium">{template.title}</span>
+                  <span className="mt-1 flex flex-wrap items-center gap-1">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${STICKER_STATUS_STYLES[template.status]}`}
+                    >
+                      {STICKER_STATUS_LABELS[template.status]}
+                    </span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${STICKER_PRICING_STYLES[toPricing(template.isPaid)]}`}
+                    >
+                      {STICKER_PRICING_LABELS[toPricing(template.isPaid)]}
+                    </span>
+                  </span>
+                  <span className="mt-1 block text-xs text-ink-sub">
+                    사진 {template.slotCount}칸 · {formatDateTime(template.createdAt)}
+                  </span>
+                </span>
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="mt-2 hidden overflow-x-auto rounded-xl border border-line bg-white lg:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-line text-left text-ink-sub">
@@ -217,6 +305,9 @@ export function StickerTemplatesTable() {
               </th>
               <th scope="col" className="px-4 py-3 font-medium">
                 상태
+              </th>
+              <th scope="col" className="px-4 py-3 font-medium">
+                이용 조건
               </th>
               <th scope="col" className="px-4 py-3 font-medium">
                 등록일
@@ -277,13 +368,16 @@ export function StickerTemplatesTable() {
                     setDragging(null);
                     setDragOver(null);
                   }}
+                  // 드래그가 끝나면 click 이 따라오지 않으므로 순서 바꾸기와 충돌하지 않는다
+                  onClick={() => setEditing(template)}
                   className={[
-                    'border-b border-line last:border-0',
+                    'cursor-pointer border-b border-line last:border-0 hover:bg-gray-50',
                     dragging === index ? 'opacity-40' : '',
                     dragOver === index && dragging !== index ? 'bg-brand-500/5' : '',
                   ].join(' ')}
                 >
-                  <td className="px-2 py-3">
+                  {/* 손잡이를 누르는 것은 순서를 바꾸려는 것이므로 모달을 열지 않는다 */}
+                  <td className="px-2 py-1.5" onClick={(event) => event.stopPropagation()}>
                     <span
                       aria-hidden
                       title={sortable ? '끌어서 순서 바꾸기' : undefined}
@@ -294,39 +388,39 @@ export function StickerTemplatesTable() {
                       <DragHandleIcon />
                     </span>
                   </td>
-                  <td className="px-4 py-3">
-                    <div
-                      className="relative w-24 overflow-hidden rounded-lg bg-gray-100"
-                      style={{ aspectRatio: `${template.imageWidth} / ${template.imageHeight}` }}
-                    >
+                  {/* 세로로 긴 템플릿이 섞여도 행 높이가 일정하도록 박스를 고정하고
+                      이미지는 그 안에서 비율을 지켜 줄인다 (contain). */}
+                  <td className="px-4 py-1.5">
+                    <div className="relative h-12 w-16 overflow-hidden rounded-md bg-gray-100">
                       <Image
-                        src={template.imageUrl}
+                        src={template.previewImageUrl ?? template.imageUrl}
                         alt=""
                         fill
-                        sizes="96px"
+                        sizes="64px"
                         unoptimized
                         className="object-contain"
                       />
                     </div>
                   </td>
-                  <td className="px-4 py-3">
-                    <Link
-                      href={`/stickers/${template.id}`}
-                      // 드래그 중 링크가 끌려가지 않도록
-                      draggable={false}
-                      className="font-medium hover:text-brand-600 hover:underline"
-                    >
-                      {template.title}
-                    </Link>
+                  <td className="px-4 py-1.5">
+                    <p className="font-medium">{template.title}</p>
+                    <p className="text-xs text-ink-sub">사진 {template.slotCount}칸</p>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-1.5">
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs font-medium ${STICKER_STATUS_STYLES[template.status]}`}
                     >
                       {STICKER_STATUS_LABELS[template.status]}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-ink-sub">{formatDateTime(template.createdAt)}</td>
+                  <td className="px-4 py-1.5">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${STICKER_PRICING_STYLES[toPricing(template.isPaid)]}`}
+                    >
+                      {STICKER_PRICING_LABELS[toPricing(template.isPaid)]}
+                    </span>
+                  </td>
+                  <td className="px-4 py-1.5 text-ink-sub">{formatDateTime(template.createdAt)}</td>
                 </tr>
               ))}
           </tbody>
@@ -340,18 +434,47 @@ export function StickerTemplatesTable() {
         </p>
       )}
 
-      {/* 좌: 입력 / 우: 미리보기 2열이라 넓은 모달을 쓴다 */}
-      <Modal open={creating} onClose={() => setCreating(false)} title="템플릿 등록" size="lg">
-        <StickerTemplateForm
-          framed={false}
-          onDone={() => {
-            setCreating(false);
-            reload();
-          }}
-          onCancel={() => setCreating(false)}
-        />
+      {/* 좌: 입력 / 우: 미리보기 2열이라 넓은 모달을 쓴다.
+          Modal 은 열려 있을 때만 children 을 렌더하므로 다른 행을 열면 폼이 초기 상태로 시작한다. */}
+      <Modal open={editing !== null} onClose={() => setEditing(null)} title="콜라주 수정" size="lg">
+        {editing && (
+          <StickerTemplateForm
+            template={editing}
+            framed={false}
+            onDone={() => {
+              setEditing(null);
+              reload();
+            }}
+            onCancel={() => setEditing(null)}
+          />
+        )}
       </Modal>
     </div>
+  );
+}
+
+/** 모바일 순서 변경 버튼 — 44px 터치 타깃을 지킨다 */
+function MoveButton({
+  label,
+  disabled,
+  onClick,
+  children,
+}: {
+  label: string;
+  disabled: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      className="flex h-9 w-11 items-center justify-center rounded-lg border border-line text-xs text-ink-sub disabled:opacity-30"
+    >
+      {children}
+    </button>
   );
 }
 

@@ -64,8 +64,8 @@ export default function RefundPage() {
           <h2 className="mb-2 text-sm font-semibold text-ink">4. 정기결제(구독) 환불</h2>
           <ol className="list-decimal space-y-2 pl-5">
             <li>
-              정기결제 상품은 회원이 직접 다음 결제일 전까지 해지할 수 있으며, 해지 시 다음
-              결제부터 청구되지 않습니다.
+              정기결제 상품은 회원이 직접 다음 결제일 전까지 해지할 수 있으며, 해지 시 다음 결제부터
+              청구되지 않습니다.
             </li>
             <li>이미 결제된 이용 기간에 대한 환불은 사용 내역 및 잔여 일수에 따라 산정됩니다.</li>
             <li>

@@ -2,25 +2,43 @@ import { NextRequest, NextResponse } from 'next/server';
 import { API_BASE_URL } from './api';
 import {
   HOME_PATH,
+  LAST_PROVIDER_COOKIE,
+  LAST_PROVIDER_MAX_AGE,
+  LOGIN_PATH,
   OAUTH_COOKIE_MAX_AGE,
-  OAUTH_NONCE_COOKIE,
   OAUTH_STATE_COOKIE,
   OAUTH_VERIFIER_COOKIE,
   SESSION_COOKIE,
 } from './constants';
 
 /** SNS 로그인 제공자 — 서버 라우트(`/auth/{provider}/…`) 경로와 같은 문자열 */
-export type OAuthProvider = 'google' | 'kakao';
+export type OAuthProvider = 'kakao' | 'naver';
 
-type AuthorizeResult = { url: string; state: string; nonce: string; codeVerifier: string };
+/**
+ * 제공자마다 인가 코드를 지키는 방법이 다르다.
+ *
+ * - 카카오: PKCE — 인가 때 code_challenge 를 보내고 교환 때 code_verifier 로 증명한다.
+ * - 네이버: PKCE 미지원 — state 를 쿠키와 대조하고, 교환 때 네이버에 다시 보내 확인받는다.
+ *
+ * 서버 DTO 가 whitelist 검증(`forbidNonWhitelisted`)을 하므로 본문에 필요한 값만 정확히 보낸다.
+ */
+const USES_PKCE: Record<OAuthProvider, boolean> = { kakao: true, naver: false };
+
+type AuthorizeResult = { url: string; state: string; codeVerifier?: string };
 
 type LoginResult = {
   accessToken: string;
   expiresAt: number;
-  user: { id: string; email: string; name: string; role: 'USER' | 'ADMIN' };
+  user: {
+    id: string;
+    email: string | null;
+    name: string;
+    phone: string | null;
+    role: 'USER' | 'ADMIN';
+  };
 };
 
-const ONE_TIME_COOKIES = [OAUTH_STATE_COOKIE, OAUTH_NONCE_COOKIE, OAUTH_VERIFIER_COOKIE] as const;
+const ONE_TIME_COOKIES = [OAUTH_STATE_COOKIE, OAUTH_VERIFIER_COOKIE] as const;
 
 /** 일회용 쿠키는 해당 제공자의 로그인 경로에서만 전송된다 */
 const cookiePath = (provider: OAuthProvider) => `/auth/${provider}`;
@@ -40,14 +58,14 @@ export function createOAuthStartHandler(provider: OAuthProvider) {
       return NextResponse.redirect(new URL(`${HOME_PATH}?error=${provider}_unavailable`, req.url));
     }
 
-    const { url, state, nonce, codeVerifier } = (await res.json()) as AuthorizeResult;
+    const { url, state, codeVerifier } = (await res.json()) as AuthorizeResult;
     const response = NextResponse.redirect(url);
 
-    for (const [name, value] of [
-      [OAUTH_STATE_COOKIE, state],
-      [OAUTH_NONCE_COOKIE, nonce],
-      [OAUTH_VERIFIER_COOKIE, codeVerifier],
-    ] as const) {
+    const oneTimeValues: [name: string, value: string][] = [[OAUTH_STATE_COOKIE, state]];
+    // PKCE 를 쓰지 않는 제공자는 code_verifier 가 없다.
+    if (codeVerifier) oneTimeValues.push([OAUTH_VERIFIER_COOKIE, codeVerifier]);
+
+    for (const [name, value] of oneTimeValues) {
       response.cookies.set({
         name,
         value,
@@ -76,7 +94,6 @@ export function createOAuthCallbackHandler(provider: OAuthProvider) {
 
     const code = params.get('code');
     const state = params.get('state');
-    const nonce = store.get(OAUTH_NONCE_COOKIE)?.value;
     const codeVerifier = store.get(OAUTH_VERIFIER_COOKIE)?.value;
     const savedState = store.get(OAUTH_STATE_COOKIE)?.value;
 
@@ -84,14 +101,18 @@ export function createOAuthCallbackHandler(provider: OAuthProvider) {
     if (params.get('error')) {
       return finish(req, provider, 'cancelled');
     }
-    if (!code || !state || !savedState || state !== savedState || !nonce || !codeVerifier) {
+    const usesPkce = USES_PKCE[provider];
+    if (!code || !state || !savedState || state !== savedState) {
+      return finish(req, provider, 'invalid_state');
+    }
+    if (usesPkce && !codeVerifier) {
       return finish(req, provider, 'invalid_state');
     }
 
     const res = await fetch(`${API_BASE_URL}/auth/${provider}/callback`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code, nonce, codeVerifier }),
+      body: JSON.stringify(usesPkce ? { code, codeVerifier } : { code, state }),
       cache: 'no-store',
     }).catch(() => null);
 
@@ -100,7 +121,7 @@ export function createOAuthCallbackHandler(provider: OAuthProvider) {
     }
 
     const data = (await res.json()) as LoginResult;
-    const response = finish(req, provider, null);
+    const response = finish(req, provider, null, HOME_PATH);
 
     response.cookies.set({
       name: SESSION_COOKIE,
@@ -113,13 +134,33 @@ export function createOAuthCallbackHandler(provider: OAuthProvider) {
       expires: new Date(data.expiresAt * 1000),
     });
 
+    // 다음 로그인 때 '최근 로그인' 말풍선을 어디에 띄울지 — 성공했을 때만 기록한다.
+    response.cookies.set({
+      name: LAST_PROVIDER_COOKIE,
+      value: provider,
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: LAST_PROVIDER_MAX_AGE,
+    });
+
     return response;
   };
 }
 
-/** 홈으로 돌려보내며 일회용 OAuth 쿠키를 정리한다. */
-function finish(req: NextRequest, provider: OAuthProvider, error: string | null) {
-  const url = new URL(HOME_PATH, req.url);
+/**
+ * 일회용 OAuth 쿠키를 정리하고 돌려보낸다.
+ * 성공하면 홈으로, 실패하면 다시 시도할 수 있게 로그인 화면으로 보낸다.
+ */
+function finish(
+  req: NextRequest,
+  provider: OAuthProvider,
+  error: string | null,
+  /** 성공했을 때 보낼 곳 — 가입 직후에는 동의 화면이다 */
+  destination = HOME_PATH,
+) {
+  const url = new URL(error ? LOGIN_PATH : destination, req.url);
   if (error) url.searchParams.set('error', error);
 
   const response = NextResponse.redirect(url);

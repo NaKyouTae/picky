@@ -1,6 +1,7 @@
 import { ConsentBar } from '@/components/consent-bar';
 import { PageHeader } from '@/components/page-header';
 import { getSession } from '@/lib/auth';
+import { getMyConsents } from '@/lib/consents';
 
 export const metadata = { title: '개인정보 제3자 제공 동의 · Picky' };
 
@@ -10,6 +11,8 @@ export const dynamic = 'force-dynamic';
 export default async function ThirdPartyPage() {
   // 비로그인 상태에서도 내용은 읽을 수 있어야 하므로 막지 않는다.
   const session = await getSession();
+  // 동의 바에 쓸 값 — 비로그인이면 바 자체가 없으므로 조회하지 않는다.
+  const consents = session ? await getMyConsents() : null;
 
   return (
     <div className={session ? 'pb-cta flex flex-1 flex-col' : 'pb-page flex flex-1 flex-col'}>
@@ -18,14 +21,12 @@ export default async function ThirdPartyPage() {
       <article className="space-y-6 px-5 pb-6 pt-4 text-sm leading-relaxed text-ink-sub">
         <p className="text-right text-xs">시행일자: 2026년 9월 21일</p>
 
-        <p>
-          회사는 원활한 서비스 제공을 위해 아래와 같이 개인정보를 제3자에게 제공할 수 있습니다.
-        </p>
+        <p>회사는 원활한 서비스 제공을 위해 아래와 같이 개인정보를 제3자에게 제공할 수 있습니다.</p>
 
         <section>
           <h2 className="mb-2 text-sm font-semibold text-ink">소셜 로그인 제공자</h2>
           <ul className="list-disc space-y-1 pl-5">
-            <li>제공받는 자: 카카오, 구글</li>
+            <li>제공받는 자: 카카오</li>
             <li>제공 목적: 간편 로그인 인증 및 회원 식별</li>
             <li>제공 항목: 소셜 로그인 식별자, 이메일 주소, 이름(닉네임)</li>
             <li>보유 및 이용 기간: 회원 탈퇴 시까지</li>
@@ -48,7 +49,7 @@ export default async function ThirdPartyPage() {
         </section>
       </article>
 
-      {session && <ConsentBar consentKey="thirdParty" />}
+      {session && <ConsentBar consentKey="thirdParty" initialConsents={consents} />}
     </div>
   );
 }

@@ -99,9 +99,10 @@ export function ChallengeForm({
       categoryId: values.categoryId,
       status: values.status,
       title: values.title.trim(),
-      description: values.description.trim() || undefined,
-      duration: values.duration.trim() || undefined,
-      emoji: values.emoji.trim() || undefined,
+      // 빈 칸은 null 로 보낸다 — 생략하면 수정에서 "그대로 두기" 가 되어 지워지지 않는다.
+      description: values.description.trim() || null,
+      duration: values.duration.trim() || null,
+      emoji: values.emoji.trim() || null,
     };
 
     try {
@@ -146,7 +147,7 @@ export function ChallengeForm({
         framed ? 'max-w-2xl space-y-5 rounded-xl border border-line bg-white p-6' : 'space-y-5'
       }
     >
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label htmlFor="category" className={LABEL}>
             카테고리
@@ -188,7 +189,7 @@ export function ChallengeForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-[5rem_1fr] gap-4">
+      <div className="grid grid-cols-[4.5rem_1fr] gap-3 sm:grid-cols-[5rem_1fr] sm:gap-4">
         <div>
           <label htmlFor="emoji" className={LABEL}>
             이모지
@@ -251,11 +252,11 @@ export function ChallengeForm({
 
       {error && <p className="text-sm text-brand-600">{error}</p>}
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <button
           type="submit"
           disabled={pending !== null}
-          className="h-10 rounded-lg bg-brand-500 px-5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
+          className="h-11 rounded-lg bg-brand-500 px-5 sm:h-10 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
         >
           {pending === 'save' ? '저장 중…' : editing ? '수정' : '등록'}
         </button>
@@ -263,7 +264,7 @@ export function ChallengeForm({
           type="button"
           onClick={cancel}
           disabled={pending !== null}
-          className="h-10 rounded-lg border border-line bg-white px-5 text-sm text-ink-sub hover:bg-gray-100 disabled:opacity-60"
+          className="h-11 rounded-lg border border-line bg-white px-5 sm:h-10 text-sm text-ink-sub hover:bg-gray-100 disabled:opacity-60"
         >
           취소
         </button>
@@ -272,7 +273,7 @@ export function ChallengeForm({
             type="button"
             onClick={handleDelete}
             disabled={pending !== null}
-            className="ml-auto h-10 rounded-lg border border-line bg-white px-5 text-sm text-brand-600 hover:bg-brand-500/5 disabled:opacity-60"
+            className="ml-auto h-11 rounded-lg border border-line bg-white px-5 sm:h-10 text-sm text-brand-600 hover:bg-brand-500/5 disabled:opacity-60"
           >
             {pending === 'delete' ? '삭제 중…' : '삭제'}
           </button>

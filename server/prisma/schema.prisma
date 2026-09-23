@@ -33,7 +33,6 @@ enum Gender {
 enum ProviderType {
   KAKAO
   NAVER
-  GOOGLE
 }
 
 /// 동의 항목 — 필수(이용약관·개인정보 수집·이용)와 선택(마케팅 정보 수신·제3자 제공)
@@ -42,6 +41,17 @@ enum ConsentType {
   PRIVACY
   MARKETING
   THIRD_PARTY
+}
+
+/// 동의를 어디서 받았는지.
+///
+/// SELF 는 우리 화면(로그인 고지·마이페이지 토글·약관 화면의 동의 바)에서 받은 것이고,
+/// 나머지는 SNS 간편가입 동의화면에서 받아 온 것이다.
+/// 카카오만 약관 동의 내역을 API 로 돌려준다 — 그 API 가 없는 제공자는 SELF 로만 기록된다.
+enum ConsentSource {
+  SELF
+  KAKAO
+  NAVER
 }
 
 /// 챌린지 노출 상태 — PUBLISHED 만 앱의 랜덤 추첨 대상이 된다
@@ -56,7 +66,7 @@ enum ChallengeStatus {
 
 /// 챌린지 그룹 상태 — 상태·일자는 그룹 단위로만 관리한다
 enum ChallengeGroupStatus {
-  /// 진행 중 — 사용자당 하나만 존재한다
+  /// 진행 중 — 사용자·카테고리당 하나만 존재한다 (카테고리가 다르면 동시에 진행할 수 있다)
   IN_PROGRESS
   /// 완료 (끝까지 해냄)
   COMPLETED
@@ -66,9 +76,25 @@ enum ChallengeGroupStatus {
 
 model User {
   id       String    @id @default(uuid()) @db.Uuid
-  /// 필수 — SNS 프로필에서 수집
-  email    String    @unique
+  /// 선택 — SNS 프로필에서 수집. 카카오·네이버 모두 **선택 동의**라 거부하면 비어 있다.
+  ///
+  /// **unique 가 아니다.** 회원을 묶는 기준은 email 이 아니라 phone 이다 —
+  /// 제공자가 주는 이메일은 신뢰도가 제각각이라(네이버는 검증되지 않은 연락처 이메일)
+  /// 이것으로 계정을 합치면 남의 주소를 적어 넣는 것만으로 계정을 가로챌 수 있다.
+  email    String?
+  /// 필수 — 카카오·네이버 모두 필수 동의로 받으므로 항상 채워진다.
   name     String
+  /// SNS 프로필에서 받은 연락처 — 숫자만 (예: "01012345678").
+  ///
+  /// **회원을 묶는 기준이다.** 제공자가 다르더라도 번호가 같으면 같은 사람으로 보고
+  /// 한 회원에 계정을 덧붙인다 (User 1 : N Account). 카카오·네이버 모두 필수 동의로 받고
+  /// 통신사에서 본인확인된 번호라, 성격이 제각각인 이메일보다 믿을 수 있다.
+  ///
+  /// 그래서 unique 다 — 같은 번호로 회원이 둘 생기면 식별 기준이 무너진다.
+  /// 번호를 받지 못하면(해외 번호·동의 거부) null 이고, 그때는 묶을 근거가 없어 별도 회원이 된다.
+  /// Postgres 는 NULL 중복을 허용하므로 제약은 그대로 유지된다.
+  /// 탈퇴하면 null 로 비우므로(개인정보 파기) 그 번호로 다시 가입할 수 있다.
+  phone    String?   @unique @db.VarChar(20)
   /// 선택 — 제공자가 동의를 받지 못하면 비어 있음
   gender   Gender?
   /// "20~29" 처럼 제공자마다 표기가 달라 문자열로 보관
@@ -87,27 +113,43 @@ model User {
   marketingExpiresAt DateTime? @map("marketing_expires_at")
   thirdPartyAgreedAt DateTime? @map("third_party_agreed_at")
 
+  /// 위 동의 시각을 어디서 받았는지 — 마이페이지에 "카카오에서 동의" 로 보여 준다.
+  /// 이력은 consent_logs 가 들고 있고, 여기에는 최신 한 건의 출처만 둔다 (동의 시각과 짝).
+  termsConsentSource      ConsentSource? @map("terms_consent_source")
+  privacyConsentSource    ConsentSource? @map("privacy_consent_source")
+  marketingConsentSource  ConsentSource? @map("marketing_consent_source")
+  thirdPartyConsentSource ConsentSource? @map("third_party_consent_source")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  accounts        Account[]
-  challengeGroups ChallengeGroup[]
-  consentLogs     ConsentLog[]
+  accounts         Account[]
+  challengeGroups  ChallengeGroup[]
+  consentLogs      ConsentLog[]
+  membershipOrders MembershipOrder[]
 
   // 목록/통계 조회용
   @@index([status, createdAt])
   @@index([createdAt])
+  // 어드민에서 이메일로 회원을 찾을 때 (email 은 unique 가 아니라 인덱스만 둔다.
+  // 연락처는 위 @unique 가 인덱스를 겸한다)
+  @@index([email])
   @@map("users")
 }
 
-/// SNS 계정 — 한 유저가 카카오/네이버/구글을 동시에 연결할 수 있음 (User 1 : N Account)
+/// SNS 계정 — 한 유저가 여러 제공자를 동시에 연결할 수 있음 (User 1 : N Account)
 model Account {
   id String @id @default(uuid()) @db.Uuid
 
   userId       String       @map("user_id") @db.Uuid
   providerType ProviderType @map("provider_type")
-  /// 제공자가 발급한 고유 회원번호 (카카오 id, 네이버 id, 구글 sub)
+  /// 제공자가 발급한 고유 회원번호 (카카오 id 등)
   providerId   String       @map("provider_id") @db.VarChar(255)
+  /// 탈퇴 시 제공자 쪽 연결을 끊는 데 쓰는 갱신 토큰 — AES-256-GCM 으로 암호화해 보관한다.
+  /// 네이버의 연결 해제 API 가 그 사용자의 토큰을 요구해서 어쩔 수 없이 들고 있는 값이다.
+  /// 카카오는 어드민 키만으로 끊을 수 있어 저장하지 않는다(늘 null).
+  /// 암호문 길이는 토큰 길이에 딸려 가므로 상한을 두지 않는다.
+  refreshToken String?      @map("refresh_token") @db.Text
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -128,10 +170,15 @@ model Account {
 model ConsentLog {
   id String @id @default(uuid()) @db.Uuid
 
-  userId String      @map("user_id") @db.Uuid
-  type   ConsentType
+  userId      String        @map("user_id") @db.Uuid
+  type        ConsentType
   /// true = 동의, false = 철회
-  agreed Boolean
+  agreed      Boolean
+  /// 이 한 건을 어디서 받았는지 (우리 화면 / SNS 간편가입 동의화면)
+  source      ConsentSource @default(SELF)
+  /// SNS 에서 받아 온 경우 그 제공자의 약관 태그 (예: service_20260921).
+  /// 약관을 개정하면 태그가 바뀌므로, 어떤 판본에 동의했는지는 이 값으로만 증빙된다.
+  providerTag String?       @map("provider_tag") @db.VarChar(100)
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -226,8 +273,10 @@ model ChallengeGroup {
   category ChallengeCategory    @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   items    ChallengeGroupItem[]
 
-  // 진행 중인 그룹 단건 조회: WHERE (user_id, status) — 선행 컬럼부터 그대로 쓰인다
+  // 메인 화면: 진행 중인 그룹 전부 조회 WHERE (user_id, status) — 선행 컬럼부터 그대로 쓰인다
   @@index([userId, status])
+  // 카테고리를 고를 때: 그 카테고리의 진행 중 그룹이 있는지 WHERE (user_id, category_id, status)
+  @@index([userId, categoryId, status])
   // 사용자별 기록 목록: WHERE user_id ORDER BY created_at desc
   @@index([userId, createdAt])
   // FK 는 Postgres 가 자동 인덱싱하지 않는다
@@ -241,14 +290,19 @@ model ChallengeGroup {
 model ChallengeGroupItem {
   id String @id @default(uuid()) @db.Uuid
 
-  groupId String @map("group_id") @db.Uuid
+  groupId        String    @map("group_id") @db.Uuid
   /// 다시 뽑기로 교체될 수 있다 — position 은 그대로 두고 이 값만 바뀐다
-  challengeId String @map("challenge_id") @db.Uuid
+  challengeId    String    @map("challenge_id") @db.Uuid
   /// 그룹 안 몇 번째 칸인지 (1..5)
-  position Int
+  position       Int
   /// 이 칸을 완료한 시각 — null 이면 아직 진행 중인 칸이다.
   /// 완료하면 다음 칸이 새로 뽑히고, 마지막 칸을 완료하면 그룹이 완료된다.
-  completedAt DateTime? @map("completed_at")
+  completedAt    DateTime? @map("completed_at")
+  /// 인증 사진의 Storage 경로 (private 버킷 `challenge-proofs`).
+  ///
+  /// **임시 파일이다.** 콜라주를 만든 뒤 또는 그룹을 그만둘 때 파일과 함께 이 값도 비운다.
+  /// public URL 은 만들지 않고 필요할 때 signed URL 을 발급한다.
+  proofImagePath String?   @map("proof_image_path") @db.VarChar(500)
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -275,22 +329,39 @@ enum StickerTemplateStatus {
   ARCHIVED
 }
 
-/// 관리자가 등록하는 사진 콜라주 템플릿 — 이미지 한 장이 전부다.
-/// 사진을 어디에 어떻게 끼워 넣을지는 앱에서 사용자가 직접 정하므로
-/// 서버는 사진 자리(영역)를 알지 않는다.
+/// 관리자가 등록하는 사진 콜라주 템플릿.
+/// 이미지 한 장 + 사진이 들어갈 칸 목록으로 이루어진다.
 model StickerTemplate {
   id String @id @default(uuid()) @db.Uuid
 
   title  String                @db.VarChar(120)
   status StickerTemplateStatus @default(DRAFT)
 
-  /// 템플릿 이미지 public URL
-  imageUrl    String @map("image_url") @db.Text
+  /// 템플릿 이미지 public URL — **사진 자리가 투명하게 뚫린 합성용 레이어**다.
+  imageUrl  String @map("image_url") @db.Text
   /// Storage 내부 경로 — 이미지 교체/삭제 시 이전 파일을 지우는 데 쓴다
-  imagePath   String @map("image_path") @db.VarChar(500)
+  imagePath String @map("image_path") @db.VarChar(500)
+
+  /// 고객에게 보여 줄 미리보기 이미지 (앱의 템플릿 선택 바텀시트).
+  ///
+  /// 합성용 레이어는 칸이 뚫려 있어서, 칸이 화면 전체인 템플릿은 **전부 투명한 PNG** 가 된다.
+  /// 그대로 보여 주면 빈 카드로 보이므로 칸을 회색으로 채운 그림을 따로 만들어 둔다.
+  /// 이 값이 없으면(예전에 등록한 템플릿) 앱은 imageUrl 로 되돌아간다.
+  previewImageUrl  String? @map("preview_image_url") @db.Text
+  previewImagePath String? @map("preview_image_path") @db.VarChar(500)
   /// 원본 픽셀 크기 — 목록 썸네일의 비율을 잡는 데 쓴다
-  imageWidth  Int    @map("image_width")
-  imageHeight Int    @map("image_height")
+  imageWidth       Int     @map("image_width")
+  imageHeight      Int     @map("image_height")
+
+  /// 사진이 들어갈 칸 — 템플릿 원본 픽셀 기준 `[{ cx, cy, w, h, angle }]` (angle 은 라디안).
+  /// 0~1 로 정규화하지 않는다: 회전이 있으면 x·y 를 각각 다른 값으로 나누는 순간 각도가 뒤틀린다.
+  slots     Json @default("[]")
+  /// slots 의 길이. 목록에서 칸 수를 보여주고 필터하려고 따로 둔다 (JSON 안을 세지 않기 위해).
+  slotCount Int  @default(0) @map("slot_count")
+
+  /// 유료 템플릿 여부 — true 면 결제(또는 구독)한 사용자만 쓸 수 있다.
+  /// 기존/신규 템플릿은 무료가 기본이고, 어드민 콜라주 수정 화면에서 바꾼다.
+  isPaid Boolean @default(false) @map("is_paid")
 
   /// 앱 목록 정렬 — 작을수록 앞에 보인다
   displayOrder Int @default(0) @map("display_order")
@@ -304,4 +375,100 @@ model StickerTemplate {
   @@index([status, createdAt])
   @@index([createdAt])
   @@map("sticker_templates")
+}
+
+/// 유료 템플릿을 쓸 수 있는 기간권(회원권).
+/// 관리자가 "개월 수 + 금액" 으로 수시로 만들고, 구매하면 그 개월 수만큼 이용 기간이 늘어난다.
+/// 구매 기록은 별도 테이블에서 이 플랜을 참조한다 (금액·개월 수는 구매 시점 값을 복사해 둘 것 —
+/// 플랜의 가격이 나중에 바뀌어도 지난 구매가 흔들리지 않게).
+model MembershipPlan {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// 앱 결제 화면에 보이는 이름 (예: 1개월권)
+  name        String  @db.VarChar(60)
+  /// 구매 시 늘어나는 이용 기간 (개월)
+  months      Int
+  /// 판매 금액 — KRW 원 단위 정수 (소수점 없는 통화라 Decimal 을 쓰지 않는다)
+  price       Int
+  /// 결제 화면에 덧붙이는 한 줄 설명
+  description String? @db.VarChar(200)
+
+  /// 판매 여부 — false 면 앱 결제 화면에서 감춘다.
+  /// 이미 판매한 회원권의 남은 기간에는 영향이 없다 (기간은 구매 기록이 들고 있다).
+  isActive Boolean @default(true) @map("is_active")
+
+  /// 앱 목록 정렬 — 작을수록 앞에 보인다
+  displayOrder Int @default(0) @map("display_order")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  orders MembershipOrder[]
+
+  // 앱 결제 화면: WHERE is_active ORDER BY display_order, months — 선행 컬럼부터 그대로 쓰인다
+  @@index([isActive, displayOrder, months])
+  @@map("membership_plans")
+}
+
+/// 회원권 결제 상태.
+/// 환불은 다루지 않으므로 취소 상태가 없다 — 승인된 결제는 PAID 로 남는다.
+enum MembershipOrderStatus {
+  /// 주문을 만들고 결제창을 띄운 상태 (아직 승인 안 됨)
+  PENDING
+  /// 결제 승인 완료 — 이용 기간이 부여된다
+  PAID
+  /// 결제창에서 실패·중단됐거나 승인이 거절된 상태
+  FAILED
+}
+
+/// 회원권 결제(구매) 내역.
+///
+/// 토스페이먼츠 결제창 흐름: 주문 생성(PENDING) → 결제창 → successUrl → 서버 승인(confirm) → PAID.
+/// 이용 기간은 승인 시점에 계산해 `startsAt`~`endsAt` 로 굳힌다. 남은 기간이 있으면 그 뒤에 이어 붙이므로
+/// "유료 템플릿을 쓸 수 있는가" 는 이 테이블에서 endsAt 최댓값만 보면 된다 (별도 이용권 테이블을 두지 않는다).
+model MembershipOrder {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// 토스에 넘기는 주문번호 — 승인·조회의 키라서 우리가 만들고 유일해야 한다
+  orderCode String @unique @map("order_code") @db.VarChar(64)
+
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// 구매한 회원권. 플랜이 지워져도 결제 내역은 남아야 하므로 SetNull 이고,
+  /// 화면에 보여 줄 값은 아래 스냅샷을 쓴다.
+  planId String?         @map("plan_id") @db.Uuid
+  plan   MembershipPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+
+  /// 구매 시점 스냅샷 — 플랜의 이름·금액·기간이 나중에 바뀌어도 지난 내역은 그대로여야 한다
+  planName String @map("plan_name") @db.VarChar(60)
+  months   Int
+  /// 결제 금액 (원) — 승인 시 토스가 알려준 금액과 일치해야 한다
+  amount   Int
+
+  status MembershipOrderStatus @default(PENDING)
+
+  /// 토스 결제 식별자 — 승인 후에 생긴다
+  paymentKey String?   @unique @map("payment_key") @db.VarChar(200)
+  /// 토스가 알려주는 결제수단 표기 (카드, 간편결제 등)
+  method     String?   @db.VarChar(40)
+  paidAt     DateTime? @map("paid_at")
+  /// 실패 사유 (토스 code: message) — 내역 화면에 이유를 보여주기 위해 남긴다
+  failReason String?   @map("fail_reason") @db.VarChar(300)
+
+  /// 부여된 이용 기간 — PAID 일 때만 채워진다
+  startsAt DateTime? @map("starts_at")
+  endsAt   DateTime? @map("ends_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 마이페이지 결제 내역: WHERE user_id ORDER BY created_at desc
+  @@index([userId, createdAt])
+  // 이용권 유효 여부: WHERE user_id AND status = PAID AND ends_at > now()
+  @@index([userId, status, endsAt])
+  // 어드민 목록: WHERE status? ORDER BY created_at desc
+  @@index([status, createdAt])
+  @@index([createdAt])
+  @@map("membership_orders")
 }

@@ -92,6 +92,15 @@ export function ChallengesTable({ categories }: { categories: AdminChallengeCate
   const hasPrev = pageNumber > 1;
   const hasNext = Boolean(page?.nextCursor);
   const filtered = Boolean(filters.query || filters.categoryId || filters.status);
+  /** 행 대신 보여줄 안내 (없으면 null) — 표와 모바일 카드가 같이 쓴다 */
+  const message = loading
+    ? '불러오는 중…'
+    : (error ??
+      (items.length === 0
+        ? filtered
+          ? '조건에 맞는 챌린지가 없습니다.'
+          : '등록된 챌린지가 없습니다.'
+        : null));
 
   return (
     <div>
@@ -101,7 +110,7 @@ export function ChallengesTable({ categories }: { categories: AdminChallengeCate
             event.preventDefault();
             applyFilters({ ...filters, query: input.trim() });
           }}
-          className="flex gap-2"
+          className="flex w-full gap-2 sm:w-auto"
         >
           <input
             type="search"
@@ -109,11 +118,11 @@ export function ChallengesTable({ categories }: { categories: AdminChallengeCate
             onChange={(event) => setInput(event.target.value)}
             placeholder="제목 검색"
             aria-label="제목 검색"
-            className="h-10 w-60 rounded-lg border border-line bg-white px-3 text-sm outline-none focus:border-brand-500"
+            className="h-11 w-full min-w-0 rounded-lg border border-line bg-white px-3 text-sm outline-none focus:border-brand-500 sm:h-10 sm:w-60"
           />
           <button
             type="submit"
-            className="h-10 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white hover:bg-brand-600"
+            className="h-11 shrink-0 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white hover:bg-brand-600 sm:h-10"
           >
             검색
           </button>
@@ -123,7 +132,7 @@ export function ChallengesTable({ categories }: { categories: AdminChallengeCate
           value={filters.categoryId}
           onChange={(event) => applyFilters({ ...filters, categoryId: event.target.value })}
           aria-label="카테고리 필터"
-          className="h-10 rounded-lg border border-line bg-white px-3 text-sm outline-none focus:border-brand-500"
+          className="h-11 min-w-0 flex-1 rounded-lg border border-line bg-white px-3 text-sm outline-none focus:border-brand-500 sm:h-10 sm:flex-none"
         >
           <option value="">전체 카테고리</option>
           {categories.map((category) => (
@@ -140,7 +149,7 @@ export function ChallengesTable({ categories }: { categories: AdminChallengeCate
             applyFilters({ ...filters, status: event.target.value as ChallengeStatus | '' })
           }
           aria-label="상태 필터"
-          className="h-10 rounded-lg border border-line bg-white px-3 text-sm outline-none focus:border-brand-500"
+          className="h-11 min-w-0 flex-1 rounded-lg border border-line bg-white px-3 text-sm outline-none focus:border-brand-500 sm:h-10 sm:flex-none"
         >
           <option value="">전체 상태</option>
           {STATUSES.map((status) => (
@@ -157,7 +166,7 @@ export function ChallengesTable({ categories }: { categories: AdminChallengeCate
               setInput('');
               applyFilters(EMPTY_FILTERS);
             }}
-            className="h-10 rounded-lg border border-line bg-white px-4 text-sm text-ink-sub hover:bg-gray-100"
+            className="h-11 w-full rounded-lg border border-line bg-white px-4 text-sm text-ink-sub hover:bg-gray-100 sm:h-10 sm:w-auto"
           >
             초기화
           </button>
@@ -166,13 +175,55 @@ export function ChallengesTable({ categories }: { categories: AdminChallengeCate
         <button
           type="button"
           onClick={() => setCreating(true)}
-          className="ml-auto h-10 rounded-lg bg-ink px-4 text-sm font-semibold text-white hover:opacity-90"
+          className="h-11 w-full rounded-lg bg-ink px-4 text-sm font-semibold text-white hover:opacity-90 sm:ml-auto sm:h-10 sm:w-auto"
         >
           챌린지 등록
         </button>
       </div>
 
-      <div className="mt-4 overflow-x-auto rounded-xl border border-line bg-white">
+      {/* 모바일 — 표 대신 카드. 카드를 통째로 눌러 수정 화면으로 들어간다 */}
+      <div className="mt-4 space-y-2 lg:hidden">
+        {message ? (
+          <p
+            className={`rounded-xl border border-line bg-white px-4 py-10 text-center text-sm ${
+              error ? 'text-brand-600' : 'text-ink-sub'
+            }`}
+          >
+            {message}
+          </p>
+        ) : (
+          items.map((challenge) => (
+            <Link
+              key={challenge.id}
+              href={`/challenges/${challenge.id}`}
+              className="block rounded-xl border border-line bg-white p-4 active:bg-gray-50"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-xs text-ink-sub">
+                    {challenge.category.emoji} {challenge.category.name}
+                  </p>
+                  <p className="mt-0.5 font-medium">
+                    {challenge.emoji ? `${challenge.emoji} ` : ''}
+                    {challenge.title}
+                  </p>
+                </div>
+                <span
+                  className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${CHALLENGE_STATUS_STYLES[challenge.status]}`}
+                >
+                  {CHALLENGE_STATUS_LABELS[challenge.status]}
+                </span>
+              </div>
+              <div className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-2 text-xs text-ink-sub">
+                <span>소요 시간 {challenge.duration ?? '-'}</span>
+                <span>{formatDateTime(challenge.createdAt)}</span>
+              </div>
+            </Link>
+          ))
+        )}
+      </div>
+
+      <div className="mt-4 hidden overflow-x-auto rounded-xl border border-line bg-white lg:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-line text-left text-ink-sub">
@@ -256,7 +307,7 @@ export function ChallengesTable({ categories }: { categories: AdminChallengeCate
             type="button"
             onClick={() => setCursors((prev) => prev.slice(0, -1))}
             disabled={!hasPrev || loading}
-            className="h-9 rounded-lg border border-line bg-white px-4 text-sm hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-white"
+            className="h-11 rounded-lg border border-line bg-white px-4 text-sm hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-white sm:h-9"
           >
             이전
           </button>
@@ -264,7 +315,7 @@ export function ChallengesTable({ categories }: { categories: AdminChallengeCate
             type="button"
             onClick={() => setCursors((prev) => [...prev, page?.nextCursor ?? null])}
             disabled={!hasNext || loading}
-            className="h-9 rounded-lg border border-line bg-white px-4 text-sm hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-white"
+            className="h-11 rounded-lg border border-line bg-white px-4 text-sm hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-white sm:h-9"
           >
             다음
           </button>

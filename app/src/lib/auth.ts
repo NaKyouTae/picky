@@ -4,8 +4,11 @@ import { SESSION_COOKIE } from './constants';
 
 export type Session = {
   id: string;
-  email: string;
+  /** 제공자가 준 이메일 — 선택 동의라 비어 있을 수 있다 */
+  email: string | null;
   name: string;
+  /** 제공자가 준 연락처 — 선택 동의라 비어 있을 수 있다 */
+  phone: string | null;
   role: 'USER' | 'ADMIN';
 };
 

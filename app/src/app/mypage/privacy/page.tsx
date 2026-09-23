@@ -1,6 +1,7 @@
 import { ConsentBar } from '@/components/consent-bar';
 import { PageHeader } from '@/components/page-header';
 import { getSession } from '@/lib/auth';
+import { getMyConsents } from '@/lib/consents';
 
 export const metadata = { title: '개인정보처리방침 · Picky' };
 
@@ -10,13 +11,15 @@ export const dynamic = 'force-dynamic';
 /** 개인정보 처리 위탁 현황 — 바뀌면 이 표와 시행일자를 함께 고친다. */
 const PROCESSORS = [
   { name: 'Supabase', task: '회원 정보 데이터베이스 운영' },
-  { name: '카카오, 구글', task: '소셜 로그인 인증' },
+  { name: '카카오', task: '소셜 로그인 인증' },
   { name: 'Vercel, 클라우드타입', task: '서비스 호스팅' },
 ];
 
 export default async function PrivacyPage() {
   // 비로그인 상태에서도 방침은 읽을 수 있어야 하므로 막지 않는다.
   const session = await getSession();
+  // 동의 바에 쓸 값 — 비로그인이면 바 자체가 없으므로 조회하지 않는다.
+  const consents = session ? await getMyConsents() : null;
 
   return (
     <div className={session ? 'pb-cta flex flex-1 flex-col' : 'pb-page flex flex-1 flex-col'}>
@@ -38,7 +41,7 @@ export default async function PrivacyPage() {
             <li>
               <p>회원가입 시 (소셜 로그인)</p>
               <ul className="mt-1 list-disc space-y-1 pl-5">
-                <li>필수: 이메일 주소, 이름(닉네임), 소셜 로그인 식별자(카카오·구글 회원번호)</li>
+                <li>필수: 이메일 주소, 이름(닉네임), 소셜 로그인 식별자(카카오 회원번호)</li>
                 <li>
                   선택: 성별, 연령대, 생년월일 — 카카오 로그인 시 이용자가 제공에 동의한 항목만
                   전달됩니다
@@ -80,8 +83,7 @@ export default async function PrivacyPage() {
           <ol className="list-decimal space-y-1 pl-5">
             <li>회원 탈퇴 시 회사가 수집한 개인정보는 지체 없이 파기하는 것을 원칙으로 합니다.</li>
             <li>
-              접속 로그는 호스팅 서비스의 보관 정책에 따라 일정 기간 보관된 뒤 자동으로
-              삭제됩니다.
+              접속 로그는 호스팅 서비스의 보관 정책에 따라 일정 기간 보관된 뒤 자동으로 삭제됩니다.
             </li>
             <li>
               회사가 유료 서비스를 도입하는 경우, 결제·청약철회에 관한 기록은 관련 법령이 정한
@@ -101,15 +103,15 @@ export default async function PrivacyPage() {
             제공합니다.
           </p>
           <ul className="mt-2 list-disc space-y-1 pl-5">
-            <li>제공받는 자: 카카오, 구글 (소셜 로그인 제공자)</li>
+            <li>제공받는 자: 카카오 (소셜 로그인 제공자)</li>
             <li>제공 목적: 간편 로그인 인증 및 회원 식별</li>
             <li>제공 항목: 소셜 로그인 식별자, 이메일 주소, 이름(닉네임)</li>
             <li>보유 및 이용 기간: 회원 탈퇴 시까지</li>
           </ul>
           <p className="mt-2">
             위 경우를 제외하고 회사는 회원의 사전 동의 없이 개인정보를 제3자에게 제공하지 않습니다.
-            다만, 관련 법령에 따라 수사기관의 요청이 있는 등 법령에서 정한 예외적인 경우는
-            그러하지 아니합니다. 제3자 제공 동의는 마이페이지에서 언제든지 철회할 수 있습니다.
+            다만, 관련 법령에 따라 수사기관의 요청이 있는 등 법령에서 정한 예외적인 경우는 그러하지
+            아니합니다. 제3자 제공 동의는 마이페이지에서 언제든지 철회할 수 있습니다.
           </p>
         </section>
 
@@ -235,7 +237,7 @@ export default async function PrivacyPage() {
         </p>
       </article>
 
-      {session && <ConsentBar consentKey="privacy" />}
+      {session && <ConsentBar consentKey="privacy" initialConsents={consents} />}
     </div>
   );
 }

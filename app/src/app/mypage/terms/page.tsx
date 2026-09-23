@@ -1,6 +1,7 @@
 import { ConsentBar } from '@/components/consent-bar';
 import { PageHeader } from '@/components/page-header';
 import { getSession } from '@/lib/auth';
+import { getMyConsents } from '@/lib/consents';
 
 export const metadata = { title: '이용약관 · Picky' };
 
@@ -10,6 +11,8 @@ export const dynamic = 'force-dynamic';
 export default async function TermsPage() {
   // 비로그인 상태에서도 약관은 읽을 수 있어야 하므로 막지 않는다.
   const session = await getSession();
+  // 동의 바에 쓸 값 — 비로그인이면 바 자체가 없으므로 조회하지 않는다.
+  const consents = session ? await getMyConsents() : null;
 
   return (
     <div className={session ? 'pb-cta flex flex-1 flex-col' : 'pb-page flex flex-1 flex-col'}>
@@ -63,9 +66,8 @@ export default async function TermsPage() {
           <h2 className="mb-2 text-sm font-semibold text-ink">제4조 (회원가입 및 계정)</h2>
           <ol className="list-decimal space-y-1 pl-5">
             <li>
-              회원가입은 이용자가 카카오·구글 등 소셜 로그인으로 가입을 신청하고, 회사가 이를
-              승낙함으로써 성립됩니다. 이때 회원은 본 약관과 개인정보처리방침에 동의한 것으로
-              봅니다.
+              회원가입은 이용자가 카카오 소셜 로그인으로 가입을 신청하고, 회사가 이를 승낙함으로써
+              성립됩니다. 이때 회원은 본 약관과 개인정보처리방침에 동의한 것으로 봅니다.
             </li>
             <li>
               회원은 자신의 계정을 제3자에게 양도·대여할 수 없으며, 계정 관리에 대한 책임은 회원
@@ -148,7 +150,7 @@ export default async function TermsPage() {
         <p className="text-right text-xs">부칙: 본 약관은 2026년 9월 21일부터 시행됩니다.</p>
       </article>
 
-      {session && <ConsentBar consentKey="terms" />}
+      {session && <ConsentBar consentKey="terms" initialConsents={consents} />}
     </div>
   );
 }

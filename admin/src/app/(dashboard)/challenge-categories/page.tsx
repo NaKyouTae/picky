@@ -12,7 +12,7 @@ export default async function ChallengeCategoriesPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">챌린지 카테고리</h1>
+      <h1 className="text-xl font-bold lg:text-2xl">챌린지 카테고리</h1>
       <p className="mt-2 text-sm text-ink-sub">
         앱 메인 화면에 나열되는 카테고리입니다. 고르면 그 안에서 챌린지 그룹이 시작됩니다.
       </p>

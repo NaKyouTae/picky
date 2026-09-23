@@ -9,7 +9,7 @@
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
     },
     "dev": {
-      "dependsOn": ["db:generate"],
+      "dependsOn": ["db:generate", "db:sync"],
       "cache": false,
       "persistent": true
     },
@@ -25,6 +25,10 @@
       "dependsOn": ["^build", "db:generate"]
     },
     "db:generate": {
+      "cache": false
+    },
+    "db:sync": {
+      "dependsOn": ["db:generate"],
       "cache": false
     },
     "clean": {

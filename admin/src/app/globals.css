@@ -17,3 +17,16 @@
     @apply bg-gray-50 text-ink font-sans antialiased;
   }
 }
+
+/*
+ * 모바일 사파리는 16px 미만 입력에 포커스하면 화면을 확대한다(되돌아오지 않는다).
+ * Tailwind 유틸리티(text-sm)를 이겨야 하므로 @layer 밖에 둔다 —
+ * 레이어 없는 규칙이 모든 cascade layer 보다 우선한다.
+ */
+@media (max-width: 1023px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}

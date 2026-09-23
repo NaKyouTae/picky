@@ -72,7 +72,12 @@ export function PageHeader({
           {icon}
         </Link>
       ) : (
-        <button type="button" onClick={() => router.back()} aria-label={label} className={className}>
+        <button
+          type="button"
+          onClick={() => router.back()}
+          aria-label={label}
+          className={className}
+        >
           {icon}
         </button>
       )}

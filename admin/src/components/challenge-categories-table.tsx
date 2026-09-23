@@ -70,11 +70,11 @@ export function ChallengeCategoriesTable({ categories }: { categories: AdminChal
     setPending('save');
     setError(null);
 
-    // 빈 문자열은 보내지 않는다 — 서버 DTO 에서 선택 필드는 생략이 곧 "없음" 이다.
+    // 빈 칸은 null 로 보낸다 — 생략하면 수정에서 "그대로 두기" 가 되어 지워지지 않는다.
     const body = {
       name: values.name.trim(),
-      emoji: values.emoji.trim() || undefined,
-      description: values.description.trim() || undefined,
+      emoji: values.emoji.trim() || null,
+      description: values.description.trim() || null,
       displayOrder: Number(values.displayOrder) || 0,
       status: values.status,
     };
@@ -124,18 +124,55 @@ export function ChallengeCategoriesTable({ categories }: { categories: AdminChal
 
   return (
     <div>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-ink-sub">앱 메인 화면에 공개 카테고리가 순서대로 나열됩니다.</p>
         <button
           type="button"
           onClick={() => open('new')}
-          className="h-10 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white hover:bg-brand-600"
+          className="h-11 shrink-0 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white hover:bg-brand-600 sm:h-10"
         >
           카테고리 등록
         </button>
       </div>
 
-      <div className="mt-4 overflow-x-auto rounded-xl border border-line bg-white">
+      {/* 모바일 — 표 대신 카드. 카드를 누르면 수정 모달이 열린다 */}
+      <div className="mt-4 space-y-2 lg:hidden">
+        {categories.length === 0 && (
+          <p className="rounded-xl border border-line bg-white px-4 py-10 text-center text-sm text-ink-sub">
+            등록된 카테고리가 없습니다.
+          </p>
+        )}
+        {categories.map((category) => (
+          <button
+            key={category.id}
+            type="button"
+            onClick={() => open(category)}
+            className="block w-full rounded-xl border border-line bg-white p-4 text-left active:bg-gray-50"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-medium">
+                  {category.emoji} {category.name}
+                </p>
+                <p className="mt-0.5 text-sm text-ink-sub">{category.description ?? '—'}</p>
+              </div>
+              <span
+                className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${CHALLENGE_STATUS_STYLES[category.status]}`}
+              >
+                {CHALLENGE_STATUS_LABELS[category.status]}
+              </span>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-line pt-2 text-xs text-ink-sub">
+              <span>순서 {category.displayOrder}</span>
+              <span>챌린지 {category._count.challenges}</span>
+              <span>참여 그룹 {category._count.groups}</span>
+              <span className="ml-auto">{formatDateTime(category.updatedAt)}</span>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-4 hidden overflow-x-auto rounded-xl border border-line bg-white lg:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-line text-left text-ink-sub">
@@ -209,7 +246,7 @@ export function ChallengeCategoriesTable({ categories }: { categories: AdminChal
         title={editing === 'new' ? '카테고리 등록' : '카테고리 수정'}
       >
         <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="name" className={LABEL}>
                 이름
@@ -253,7 +290,7 @@ export function ChallengeCategoriesTable({ categories }: { categories: AdminChal
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="displayOrder" className={LABEL}>
                 순서 (작을수록 앞)
@@ -288,18 +325,18 @@ export function ChallengeCategoriesTable({ categories }: { categories: AdminChal
 
           {error && <p className="text-sm text-brand-600">{error}</p>}
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="submit"
               disabled={pending !== null}
-              className="h-10 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
+              className="h-11 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60 sm:h-10"
             >
               {pending === 'save' ? '저장 중…' : '저장'}
             </button>
             <button
               type="button"
               onClick={() => setEditing(null)}
-              className="h-10 rounded-lg border border-line px-4 text-sm font-medium text-ink-sub hover:bg-gray-100"
+              className="h-11 rounded-lg border border-line px-4 text-sm font-medium text-ink-sub hover:bg-gray-100 sm:h-10"
             >
               취소
             </button>
@@ -308,7 +345,7 @@ export function ChallengeCategoriesTable({ categories }: { categories: AdminChal
                 type="button"
                 onClick={() => void handleDelete(editing)}
                 disabled={pending !== null}
-                className="ml-auto h-10 rounded-lg px-4 text-sm font-medium text-brand-600 hover:bg-brand-50 disabled:opacity-60"
+                className="ml-auto h-11 rounded-lg px-4 text-sm font-medium text-brand-600 hover:bg-brand-50 disabled:opacity-60 sm:h-10"
               >
                 {pending === 'delete' ? '삭제 중…' : '삭제'}
               </button>

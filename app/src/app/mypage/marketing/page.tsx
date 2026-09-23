@@ -1,6 +1,7 @@
 import { ConsentBar } from '@/components/consent-bar';
 import { PageHeader } from '@/components/page-header';
 import { getSession } from '@/lib/auth';
+import { getMyConsents } from '@/lib/consents';
 
 export const metadata = { title: '마케팅 정보 수신 동의 · Picky' };
 
@@ -10,6 +11,8 @@ export const dynamic = 'force-dynamic';
 export default async function MarketingPage() {
   // 비로그인 상태에서도 내용은 읽을 수 있어야 하므로 막지 않는다.
   const session = await getSession();
+  // 동의 바에 쓸 값 — 비로그인이면 바 자체가 없으므로 조회하지 않는다.
+  const consents = session ? await getMyConsents() : null;
 
   return (
     <div className={session ? 'pb-cta flex flex-1 flex-col' : 'pb-page flex flex-1 flex-col'}>
@@ -45,7 +48,7 @@ export default async function MarketingPage() {
         </section>
       </article>
 
-      {session && <ConsentBar consentKey="marketing" />}
+      {session && <ConsentBar consentKey="marketing" initialConsents={consents} />}
     </div>
   );
 }

@@ -1,6 +1,15 @@
 import type { Metadata, Viewport } from 'next';
+import { JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import { ViewportHeightSetter } from '@/components/viewport-height-setter';
+
+/** 메인 화면의 고정폭 서체. 굵기는 디자인이 쓰는 Regular/Medium 만 받는다 */
+const jetBrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500'],
+  variable: '--font-jetbrains-mono',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'Picky',
@@ -24,7 +33,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ko" className="h-full">
+    <html lang="ko" className={`h-full ${jetBrainsMono.variable}`}>
       <body className="h-full bg-canvas">
         <ViewportHeightSetter />
         {/* 앱 셸 — 데스크톱 웹에서도 모바일 폭(max-w-shell)으로 화면 중앙에 고정한다.

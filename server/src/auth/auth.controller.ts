@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -13,27 +14,14 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard, type AuthedRequest } from '../common/guards/jwt-auth.guard';
 import { AuthService } from './auth.service';
-import { GoogleCallbackDto } from './dto/google-callback.dto';
 import { KakaoCallbackDto } from './dto/kakao-callback.dto';
+import { NaverCallbackDto } from './dto/naver-callback.dto';
 import { UpdateConsentsDto } from './dto/update-consents.dto';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
-
-  @Get('google/authorize')
-  @ApiOperation({ summary: '구글 로그인 시작 — 인가 URL 과 일회용 값 발급' })
-  googleAuthorize() {
-    return this.auth.createGoogleAuthorizeRequest();
-  }
-
-  @Post('google/callback')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: '구글 콜백 — 인가 코드를 세션(JWT)으로 교환' })
-  googleCallback(@Body() dto: GoogleCallbackDto) {
-    return this.auth.loginWithGoogle(dto.code, dto.nonce, dto.codeVerifier);
-  }
 
   @Get('kakao/authorize')
   @ApiOperation({ summary: '카카오 로그인 시작 — 인가 URL 과 일회용 값 발급' })
@@ -45,7 +33,20 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '카카오 콜백 — 인가 코드를 세션(JWT)으로 교환' })
   kakaoCallback(@Body() dto: KakaoCallbackDto) {
-    return this.auth.loginWithKakao(dto.code, dto.nonce, dto.codeVerifier);
+    return this.auth.loginWithKakao(dto.code, dto.codeVerifier);
+  }
+
+  @Get('naver/authorize')
+  @ApiOperation({ summary: '네이버 로그인 시작 — 인가 URL 과 일회용 state 발급' })
+  naverAuthorize() {
+    return this.auth.createNaverAuthorizeRequest();
+  }
+
+  @Post('naver/callback')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '네이버 콜백 — 인가 코드를 세션(JWT)으로 교환' })
+  naverCallback(@Body() dto: NaverCallbackDto) {
+    return this.auth.loginWithNaver(dto.code, dto.state);
   }
 
   @Get('me')
@@ -56,6 +57,24 @@ export class AuthController {
     const user = await this.auth.getMe(req.user!.sub);
     if (!user) throw new NotFoundException('사용자를 찾을 수 없습니다.');
     return user;
+  }
+
+  @Delete('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '회원 탈퇴 — 개인정보를 파기하고 계정을 비활성화한다' })
+  withdraw(@Req() req: AuthedRequest) {
+    return this.auth.withdraw(req.user!.sub);
+  }
+
+  @Get('profile')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '내 정보 — 제공자에게 받아 보관 중인 수집 항목' })
+  async profile(@Req() req: AuthedRequest) {
+    const profile = await this.auth.getProfile(req.user!.sub);
+    if (!profile) throw new NotFoundException('사용자를 찾을 수 없습니다.');
+    return profile;
   }
 
   @Get('consents')
