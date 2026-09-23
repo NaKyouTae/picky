@@ -5,7 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createPrivateKey, randomBytes, sign as signRaw } from 'node:crypto';
+import { createPrivateKey, randomBytes, sign as signRaw, type KeyObject } from 'node:crypto';
 
 const AUTHORIZE_ENDPOINT = 'https://appleid.apple.com/auth/authorize';
 const TOKEN_ENDPOINT = 'https://appleid.apple.com/auth/token';
@@ -73,11 +73,26 @@ export class AppleOAuthService {
   }
 
   /**
-   * .p8 개인키 본문(PEM). 환경변수 한 줄에 넣기 위해 줄바꿈을 `\n` 으로 이스케이프해
-   * 두는 경우가 많아 되돌려 준다.
+   * 애플이 준 .p8 개인키.
+   *
+   * 환경변수 한 줄에 담는 방식이 두 가지라 둘 다 받는다:
+   * - PEM 그대로 (줄바꿈은 보통 `\n` 으로 이스케이프해 둔다)
+   * - 헤더와 줄바꿈을 걷어낸 base64(DER) 한 줄
+   *
+   * 형식이 틀리면 createPrivateKey 가 여기서 바로 던진다 — 애플에 invalid_client 로
+   * 거절당한 뒤에 원인을 찾는 것보다 낫다.
    */
-  private get privateKey() {
-    return this.config.getOrThrow<string>('APPLE_PRIVATE_KEY').replace(/\\n/g, '\n');
+  private get privateKey(): KeyObject {
+    const raw = this.config.getOrThrow<string>('APPLE_PRIVATE_KEY').trim();
+
+    if (raw.includes('BEGIN')) {
+      return createPrivateKey(raw.replace(/\\n/g, '\n'));
+    }
+    return createPrivateKey({
+      key: Buffer.from(raw, 'base64'),
+      format: 'der',
+      type: 'pkcs8',
+    });
   }
 
   /** Services ID 의 Return URL 과 문자 단위로 같아야 한다 */
@@ -222,7 +237,7 @@ export class AppleOAuthService {
     // JWS 는 서명을 R||S 로 이어 붙인 형태로 요구한다. Node 기본값인 DER 로 서명하면
     // 애플이 invalid_client 로 거절한다 — dsaEncoding 을 반드시 ieee-p1363 으로 둘 것.
     const signature = signRaw(null, Buffer.from(signingInput), {
-      key: createPrivateKey(this.privateKey),
+      key: this.privateKey,
       dsaEncoding: 'ieee-p1363',
     });
 
