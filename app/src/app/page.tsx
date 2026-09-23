@@ -20,14 +20,11 @@ export default async function HomePage() {
       // 디자인은 헤더를 프레임 맨 위에 붙인다. 노치가 있는 기기에서만
       // safe-top 만큼 내려가고, 그 외에는 디자인 그대로 0 에서 시작한다.
       //
-      // 아래는 디자인의 ©spectrum 하단 여백 54px 을 그대로 재현한다.
-      // 디자인 프레임에서 그 54px 은 '홈 인디케이터 영역 34px + 그 위 여백 20px' 이다.
-      // 홈 인디케이터를 보고하지 않는 환경(데스크톱 브라우저 등)에서도 34px 을
-      // 확보해 두어야 푸터가 디자인과 같은 자리에 앉는다.
+      // ©spectrum 아래 여백은 모든 화면과 같은 20px 이다.
       style={{
         marginTop: 'calc(var(--safe-top) * -1)',
         paddingTop: 'var(--safe-top)',
-        paddingBottom: 'calc(max(var(--safe-bottom), 34px) + 20px)',
+        paddingBottom: '20px',
       }}
     >
       <header className="flex h-14 items-center justify-between">

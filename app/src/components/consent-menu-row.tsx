@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
  *
  * 디자인(Figma 4658:3858)의 on/off 는 스위치가 아니라 두 칸짜리 세그먼트다 —
  * 지금 상태인 쪽(동의/미동의)이 point 색, 반대쪽이 gray600 으로 칠해진다.
+ * point 는 밝은 초록이라 그 위 글자만 검정으로 뒤집는다 (흰 글자는 대비가 모자란다).
  */
 export function ConsentMenuRow({
   consentKey,
@@ -72,7 +73,7 @@ export function ConsentMenuRow({
           <span
             className={cn(
               'flex flex-1 items-center justify-center',
-              agreed ? 'bg-point' : 'bg-night-raised',
+              agreed ? 'bg-point text-night' : 'bg-night-raised',
             )}
           >
             동의
@@ -80,7 +81,7 @@ export function ConsentMenuRow({
           <span
             className={cn(
               'flex flex-1 items-center justify-center',
-              agreed ? 'bg-night-raised' : 'bg-point',
+              agreed ? 'bg-night-raised' : 'bg-point text-night',
             )}
           >
             미동의

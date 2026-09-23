@@ -36,6 +36,12 @@ struct WebView: UIViewRepresentable {
         // (ios/Picky/Picky/AdBridge.swift)
         configuration.userContentController.add(context.coordinator, name: AdBridge.handlerName)
 
+        // 인증 사진의 '사진 보관함' — <input type="file"> 을 열면 iOS 가 세 갈래 액션시트를
+        // 한 번 더 끼워 넣어서, 앱에서는 PHPicker 를 직접 띄운다.
+        // (ios/Picky/Picky/PhotoPickerBridge.swift)
+        configuration.userContentController.add(context.coordinator,
+                                                name: PhotoPickerBridge.handlerName)
+
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
@@ -58,6 +64,7 @@ struct WebView: UIViewRepresentable {
         private var hasNotifiedLoad = false
         private let iap = IapBridge()
         private let ads = AdBridge()
+        private let photos = PhotoPickerBridge()
 
         init(onLoad: @escaping () -> Void) {
             self.onLoad = onLoad
@@ -77,6 +84,8 @@ struct WebView: UIViewRepresentable {
                 iap.handle(message.body, from: webView)
             case AdBridge.handlerName:
                 ads.handle(message.body, from: webView)
+            case PhotoPickerBridge.handlerName:
+                photos.handle(message.body, from: webView)
             default:
                 break
             }

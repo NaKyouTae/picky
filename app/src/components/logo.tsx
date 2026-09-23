@@ -38,19 +38,27 @@ export function LogoMark({ tone = 'point', className }: { tone?: LogoTone; class
  */
 export function Logo({
   tone = 'point',
-  wordmark = 'picky',
+  wordmark = 'Picky',
+  markClassName = 'size-[1em]',
   className,
 }: {
   tone?: LogoTone;
-  /** 워드마크 표기 — 로그인 화면만 대문자로 시작하는 'Picky' 를 쓴다 */
+  /** 워드마크 표기 — 디자인은 어느 화면에서나 대문자로 시작하는 'Picky' 다 */
   wordmark?: string;
+  /**
+   * 마크 크기 — 기본값은 글자 크기와 같은 정사각(메인 20px, 로그인 36px 프레임 그대로).
+   * 회원권 구매 화면만 36px 글자에 32px 마크를 써서 따로 넘긴다.
+   */
+  markClassName?: string;
   className?: string;
 }) {
   return (
     // 디자인은 워드마크를 Regular 로 쓴다 — 굵게 만들지 않는다.
-    // 마크 크기·간격은 글자 크기에 비례한다 (메인 20px, 로그인 36px 모두 같은 비율).
+    // 마크는 정사각이다 — 원본 벡터는 세로가 조금 길지만(18.7x19.3) 디자인이 정사각 칸에
+    // 눌러 담아 쓴다. SVG 가 preserveAspectRatio="none" 이라 그대로 늘어난다.
+    // 간격은 글자 크기에 비례한다 (0.1613em — 20px 에서 3.226px, 36px 에서 5.806px).
     <span className={cn('flex items-center gap-[0.16em] font-mono', className)}>
-      <LogoMark tone={tone} className="h-[0.96em] w-auto" />
+      <LogoMark tone={tone} className={markClassName} />
       {wordmark}
     </span>
   );

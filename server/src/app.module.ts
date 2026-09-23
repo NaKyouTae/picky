@@ -5,6 +5,7 @@ import { AdminChallengeCategoriesModule } from './admin/challenge-categories/adm
 import { AdminChallengesModule } from './admin/challenges/admin-challenges.module';
 import { AdminMembershipOrdersModule } from './admin/membership-orders/admin-membership-orders.module';
 import { AdminMembershipPlansModule } from './admin/membership-plans/admin-membership-plans.module';
+import { AdminNoticesModule } from './admin/notices/admin-notices.module';
 import { AdminStickerTemplatesModule } from './admin/sticker-templates/admin-sticker-templates.module';
 import { AdminUsersModule } from './admin/users/admin-users.module';
 import { AuthModule } from './auth/auth.module';
@@ -12,6 +13,7 @@ import { ChallengeGroupsModule } from './challenge-groups/challenge-groups.modul
 import { ChallengesModule } from './challenges/challenges.module';
 import { CollagesModule } from './collages/collages.module';
 import { MembershipsModule } from './memberships/memberships.module';
+import { NoticesModule } from './notices/notices.module';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { SupabaseModule } from './common/supabase/supabase.module';
 import { HealthController } from './health/health.controller';
@@ -31,12 +33,14 @@ import { StickerTemplatesModule } from './sticker-templates/sticker-templates.mo
     AdminChallengesModule,
     AdminMembershipOrdersModule,
     AdminMembershipPlansModule,
+    AdminNoticesModule,
     AdminStickerTemplatesModule,
     AuthModule,
     ChallengeGroupsModule,
     ChallengesModule,
     CollagesModule,
     MembershipsModule,
+    NoticesModule,
     StickerTemplatesModule,
   ],
   controllers: [HealthController],

@@ -10,8 +10,10 @@ import type { ChallengeProof } from '@/lib/challenge-proofs';
 import { MAX_CHALLENGES_PER_GROUP, slotStatus, type ChallengeGroup } from '@/lib/challenges';
 import { compressImage } from '@/lib/compress-image';
 import {
+  pickPhotoFromLibrary,
   prepareRewardedAd,
   showRewardedAd,
+  useIsPhotoPickerAvailable,
   useIsRewardedAdAvailable,
 } from '@/lib/native-app';
 import { cn } from '@/lib/utils';
@@ -102,6 +104,12 @@ export function ChallengeGroupScreen({ group: initialGroup }: { group: Challenge
    * 개발용 브라우저에는 브리지가 없어 false 이고, 그때는 광고 없이 바로 다시 뽑는다.
    */
   const adAvailable = useIsRewardedAdAvailable();
+
+  /**
+   * 앱이 사진첩을 바로 열어 줄 수 있는지.
+   * 브라우저와 이 브리지가 없는 예전 앱 빌드에서는 libraryInput 으로 되돌아간다.
+   */
+  const nativePhotoPicker = useIsPhotoPickerAvailable();
 
   // 아직 완료하지 않은 칸이 지금 할 챌린지다.
   const current = group.items.find((item) => item.completedAt === null);
@@ -220,15 +228,21 @@ export function ChallengeGroupScreen({ group: initialGroup }: { group: Challenge
     retriedRef.current.delete(slot);
   }
 
-  /**
-   * 인증 사진 업로드.
-   * 올리기 전에 Canvas 로 줄여 보낸다 — 휴대폰 원본은 5MB 상한을 넘기기 쉽다.
-   */
+  /** input 이 고른 파일을 그대로 올린다. */
   async function handleUpload(event: React.ChangeEvent<HTMLInputElement>) {
     const picked = event.target.files?.[0];
     // 같은 파일을 다시 고를 수 있도록 값을 비운다.
     event.target.value = '';
-    if (!picked || !position) return;
+    if (!picked) return;
+    await uploadProof(picked);
+  }
+
+  /**
+   * 인증 사진 업로드.
+   * 올리기 전에 Canvas 로 줄여 보낸다 — 휴대폰 원본은 5MB 상한을 넘기기 쉽다.
+   */
+  async function uploadProof(picked: File) {
+    if (!position) return;
 
     setUploading(true);
     setError(null);
@@ -301,6 +315,32 @@ export function ChallengeGroupScreen({ group: initialGroup }: { group: Challenge
   function openPicker(input: HTMLInputElement | null) {
     input?.click();
     setSheet('closing');
+  }
+
+  /**
+   * '사진 보관함' — 앱에서는 네이티브 피커를 띄운다.
+   *
+   * input 으로 열면 iOS 가 '사진 보관함 · 사진 찍기 · 파일 선택' 을 한 번 더 물어,
+   * 방금 시트에서 고른 것을 또 고르게 된다. 브리지가 없는 브라우저·예전 앱 빌드에서는
+   * 그대로 input 을 연다.
+   */
+  function handlePickFromLibrary() {
+    if (!nativePhotoPicker) {
+      openPicker(libraryInput.current);
+      return;
+    }
+
+    setSheet('closing');
+    void (async () => {
+      const result = await pickPhotoFromLibrary();
+      // 사용자가 피커를 닫은 것은 오류가 아니다 — 아무 말 없이 원래 화면으로 돌아간다.
+      if (!result.ok) {
+        if (result.reason !== 'cancelled')
+          setError('사진을 불러오지 못했어요. 다시 시도해 주세요.');
+        return;
+      }
+      await uploadProof(result.file);
+    })();
   }
 
   /**
@@ -399,11 +439,11 @@ export function ChallengeGroupScreen({ group: initialGroup }: { group: Challenge
       className="flex flex-1 flex-col gap-6 bg-night px-5 font-mono text-night-text"
       // 홈과 같은 방식 — 이 화면도 다크라서 레이아웃(main)이 준 safe-top 패딩까지 끌어올려 덮는다.
       // 그렇게 하지 않으면 노치 영역만 셸의 흰 배경으로 남는다.
-      // 하단 54px 은 디자인의 '홈 인디케이터 영역 34px + 그 위 여백 20px' 이다.
+      // 하단 여백은 모든 화면과 같은 20px 이다.
       style={{
         marginTop: 'calc(var(--safe-top) * -1)',
         paddingTop: 'var(--safe-top)',
-        paddingBottom: 'calc(max(var(--safe-bottom), 34px) + 20px)',
+        paddingBottom: '20px',
       }}
     >
       {/* 화면을 닫아도 그룹은 끝나지 않는다 — 홈에서 다시 들어오면 이어서 할 수 있다 */}
@@ -646,7 +686,7 @@ export function ChallengeGroupScreen({ group: initialGroup }: { group: Challenge
       <ChallengePhotoSheet
         state={sheet}
         onTakePhoto={() => openPicker(cameraInput.current)}
-        onPickFromLibrary={() => openPicker(libraryInput.current)}
+        onPickFromLibrary={handlePickFromLibrary}
         onRequestClose={() => setSheet('closing')}
         onClosed={() => setSheet('closed')}
       />

@@ -441,7 +441,7 @@ export function CollageMaker({
 
   // 다크 화면이라 레이아웃(main)이 준 safe-top 패딩까지 끌어올려 덮는다.
   // 그렇게 하지 않으면 노치 영역만 셸의 흰 배경으로 남는다.
-  // 하단 54px 은 다른 화면과 같은 규칙 — '홈 인디케이터 34px + 여백 20px' 이다.
+  // 하단 여백은 다른 화면과 같은 20px 이다.
   const shellStyle = {
     // 셸과 같은 높이로 못 박는다. main 은 min-h-full 이라 높이가 auto 라서, 높이를 주지
     // 않으면 캔버스의 고유 크기(템플릿 원본 비율)가 그대로 화면을 넘겨 스크롤이 생긴다.
@@ -449,7 +449,7 @@ export function CollageMaker({
     height: 'var(--app-h, 100dvh)',
     marginTop: 'calc(var(--safe-top) * -1)',
     paddingTop: 'var(--safe-top)',
-    paddingBottom: 'calc(max(var(--safe-bottom), 34px) + 20px)',
+    paddingBottom: '20px',
   } as const;
 
   if (templates.length === 0) {

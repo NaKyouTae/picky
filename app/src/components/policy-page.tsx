@@ -26,11 +26,11 @@ export function PolicyPage({
       className="flex flex-1 flex-col bg-night px-5 font-mono text-night-text"
       // 다크 화면이라 레이아웃(main)이 준 safe-top 패딩까지 끌어올려 덮는다 —
       // 그러지 않으면 노치 영역만 셸의 흰 배경으로 남는다 (마이페이지와 같은 처리).
-      // 아래 여백 54px 은 디자인의 '홈 인디케이터 34px + 그 위 20px' 이다.
+      // 아래 여백은 모든 화면과 같은 20px 이다.
       style={{
         marginTop: 'calc(var(--safe-top) * -1)',
         paddingTop: 'var(--safe-top)',
-        paddingBottom: 'calc(max(var(--safe-bottom), 34px) + 20px)',
+        paddingBottom: '20px',
       }}
     >
       {/* 약관은 화면 몇 개 분량이라 끝까지 내려가면 뒤로가기가 사라진다 — 헤더만 붙여 둔다.

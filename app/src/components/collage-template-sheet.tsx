@@ -75,8 +75,8 @@ export function CollageTemplateSheet({
           'fixed inset-x-0 bottom-0 z-50 flex max-h-[91%] flex-col items-center gap-6 rounded-t-3xl bg-night-card px-5 pt-4 font-mono text-night-text',
           closing ? 'animate-sheet-out' : 'animate-sheet-in',
         )}
-        // 화면들과 같은 하단 여백 — 디자인의 '홈 인디케이터 34px + 그 위 20px' 이다.
-        style={{ paddingBottom: 'calc(max(var(--safe-bottom), 34px) + 20px)' }}
+        // 화면들과 같은 하단 여백 20px.
+        style={{ paddingBottom: '20px' }}
       >
         {/* 손잡이 모양 — 끌어서 닫는 기능은 없고 시트라는 것만 알린다 */}
         <span className="h-[5px] w-36 rounded-full bg-night-sub" aria-hidden />

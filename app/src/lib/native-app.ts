@@ -253,6 +253,75 @@ export async function showRewardedAd(): Promise<RewardedAdResult> {
   return result ?? { ok: false, reason: 'failed' };
 }
 
+// ── 사진 보관함 ─────────────────────────────────────────────────────────────
+//
+// WKWebView 에서 `<input type="file" accept="image/*">` 를 열면 iOS 가
+// '사진 보관함 · 사진 찍기 · 파일 선택' 액션시트를 한 번 더 끼워 넣는다. 우리 바텀시트에서
+// 이미 고른 뒤라 같은 질문을 두 번 받는 꼴인데, 웹 표준으로는 그 시트를 건너뛸 수 없다.
+// 그래서 앱에서는 네이티브가 PHPicker 를 바로 띄우고 고른 사진만 넘겨 준다.
+// (네이티브: ios/Picky/Picky/PhotoPickerBridge.swift)
+//
+// '사진 찍기' 는 그대로 `capture="environment"` 인 input 이 맡는다 — 그 경우 iOS 가
+// 시트 없이 카메라를 바로 열어 주므로 브리지를 탈 이유가 없다.
+
+const PHOTO_EVENT = 'picky:photo-result';
+
+/** 고르고 읽어 들이는 데 걸리는 시간 — 사람이 앨범을 뒤지는 시간까지 넉넉히 잡는다 */
+const PHOTO_PICK_TIMEOUT_MS = 5 * 60_000;
+
+export type PickedPhotoResult =
+  | { ok: true; file: File }
+  /** 사용자가 피커를 닫았다 — 아무것도 하지 않아야 한다 */
+  | { ok: false; reason: 'cancelled' }
+  | { ok: false; reason: 'failed' };
+
+/**
+ * 네이티브 사진 피커를 쓸 수 있는지.
+ *
+ * `isNativeApp()` 과 따로 본다 — 이 브리지가 없는 예전 앱 빌드에서는
+ * 예전처럼 `<input type="file">` 로 되돌아가야 하기 때문이다.
+ */
+export function isPhotoPickerAvailable(): boolean {
+  return Boolean(handlers()?.photos);
+}
+
+/** 네이티브 사진 피커 가능 여부 훅. */
+export function useIsPhotoPickerAvailable(): boolean {
+  return useSyncExternalStore(subscribe, isPhotoPickerAvailable, getServerSnapshot);
+}
+
+/**
+ * 사진첩을 바로 열고 고른 사진 한 장을 받는다 (네이티브 앱 전용).
+ *
+ * 네이티브가 긴 변 1600px JPEG 으로 줄여 보내므로 여기서 받는 파일은 이미 작다
+ * (compressImage 와 같은 기준이라 업로드 전 압축을 한 번 더 태워도 그대로 지나간다).
+ */
+export async function pickPhotoFromLibrary(): Promise<PickedPhotoResult> {
+  const result = await callBridge<{ ok: boolean; dataUrl?: string; reason?: string }>(
+    'photos',
+    PHOTO_EVENT,
+    { action: 'pick' },
+    PHOTO_PICK_TIMEOUT_MS,
+  );
+
+  if (!result?.ok || !result.dataUrl) {
+    return { ok: false, reason: result?.reason === 'cancelled' ? 'cancelled' : 'failed' };
+  }
+
+  const file = await dataUrlToFile(result.dataUrl);
+  return file ? { ok: true, file } : { ok: false, reason: 'failed' };
+}
+
+/** 네이티브가 보낸 data URL 을 업로드용 File 로. 형식이 깨졌으면 null 이다. */
+async function dataUrlToFile(dataUrl: string): Promise<File | null> {
+  try {
+    const blob = await (await fetch(dataUrl)).blob();
+    return new File([blob], 'proof.jpg', { type: 'image/jpeg' });
+  } catch {
+    return null;
+  }
+}
+
 /**
  * 네이티브에 요청을 보내고 같은 requestId 의 답을 기다린다.
  * 브리지가 없거나 답이 오지 않으면 null 이다 (호출한 쪽이 실패로 처리한다).

@@ -53,7 +53,8 @@ export function MembershipScreen({
       </header>
 
       <div className="flex w-full flex-col items-center gap-4 py-9">
-        <Logo className="text-[36px] text-point" />
+        {/* 이 화면만 36px 글자에 32px 마크다 (디자인 4692:4284 — 다른 화면은 글자와 같은 크기) */}
+        <Logo markClassName="size-8" className="text-[36px] text-point" />
         <p className="text-[16px] leading-none">Pick your joy_</p>
       </div>
 

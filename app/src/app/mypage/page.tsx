@@ -8,6 +8,7 @@ import { ConsentMenuRow } from '@/components/consent-menu-row';
 import { getSession } from '@/lib/auth';
 import { getMyConsents } from '@/lib/consents';
 import { getMyMembership } from '@/lib/memberships';
+import { cn } from '@/lib/utils';
 
 // 세션에 따라 내용이 달라지므로 캐시하지 않는다.
 export const dynamic = 'force-dynamic';
@@ -32,12 +33,11 @@ export default async function MyPage() {
       // 이 화면은 다크라서, 레이아웃(main)이 준 safe-top 패딩까지 끌어올려 덮는다.
       // 그렇게 하지 않으면 노치 영역만 셸의 흰 배경으로 남는다 (홈과 같은 처리).
       //
-      // 아래는 디자인의 푸터 하단 여백 54px 을 그대로 재현한다 —
-      // 프레임에서 그 54px 은 '홈 인디케이터 영역 34px + 그 위 여백 20px' 이다.
+      // 푸터 아래 여백은 모든 화면과 같은 20px 이다.
       style={{
         marginTop: 'calc(var(--safe-top) * -1)',
         paddingTop: 'var(--safe-top)',
-        paddingBottom: 'calc(max(var(--safe-bottom), 34px) + 20px)',
+        paddingBottom: '20px',
       }}
     >
       <header className="flex h-14 shrink-0 items-center justify-between">
@@ -67,10 +67,23 @@ export default async function MyPage() {
             {session.email}
           </span>
         )}
-        <span className="bg-night-raised p-1 text-[12px] leading-none">
-          {membership.active ? 'Standard' : 'Free'}
+        {/* 회원권 등급 배지 — 무료는 Standard(디자인 4658:3684, 어두운 표면),
+            유료는 Pro(디자인 4683:3964, point 초록 바탕에 검정 글자)다. */}
+        <span
+          className={cn(
+            'p-1 text-[12px] leading-none',
+            membership.active ? 'bg-point text-night' : 'bg-night-raised',
+          )}
+        >
+          {membership.active ? 'Pro' : 'Standard'}
         </span>
       </Link>
+
+      <DottedDivider />
+
+      <Section title="안내">
+        <MenuLink href="/mypage/notices" label="공지사항" />
+      </Section>
 
       <DottedDivider />
 
@@ -118,7 +131,7 @@ export default async function MyPage() {
 
       {/* 사업자 정보 — 값은 lib/business.ts 한 곳에서만 온다 */}
       <section className="flex w-full flex-col gap-4">
-        <p className="text-[16px] leading-none">Ⓒspectrum</p>
+        <p className="text-[16px] leading-none">ⒸSpectrum</p>
         <BusinessInfo align="left" className="text-[14px]" />
       </section>
     </div>

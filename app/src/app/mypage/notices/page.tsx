@@ -1,38 +1,37 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ChallengeHistoryList } from '@/components/challenge-history-list';
+import { NoticeList } from '@/components/notice-list';
 import { getSession } from '@/lib/auth';
-import { getChallengeHistory } from '@/lib/challenge-groups';
-import { getMyMembership } from '@/lib/memberships';
+import { getNotices } from '@/lib/notices';
 
-export const metadata = { title: '완료한 챌린지 · Picky' };
+export const metadata = { title: '공지사항 · Picky' };
 
-// 내역은 완료할 때마다 늘어나므로 캐시하지 않는다.
+// 공지는 어드민에서 수시로 올리므로 캐시하지 않는다.
 export const dynamic = 'force-dynamic';
 
 /**
- * 완료한 챌린지 — 디자인(Figma 4694:4625, 빈 화면 4694:5139)은 마이페이지와 같은 다크 터미널 톤이다.
- *
- * 헤더 아래 24px, 그 안에서 콜라주 칸이 2열(10px)로 깔린다.
+ * 공지사항 — 마이페이지·결제 내역과 같은 다크 터미널 톤이다.
+ * 헤더 아래 24px, 그 안에서 카드가 10px 간격으로 쌓인다.
  */
-export default async function ChallengeHistoryPage() {
+export default async function NoticesPage() {
+  // 공지 자체는 누구나 볼 수 있는 내용이지만, 들어오는 입구가 마이페이지뿐이라
+  // 다른 마이페이지 화면과 같게 맞춘다 (로그인하지 않았으면 홈으로).
   const session = await getSession();
   if (!session) redirect('/');
 
-  // 회원권 상태는 내려받기 버튼의 갈림길에만 쓴다 (무료면 구매 화면으로 보낸다).
-  const [first, membership] = await Promise.all([getChallengeHistory(), getMyMembership()]);
+  const first = await getNotices();
 
   return (
     <div
       className="flex flex-1 flex-col gap-6 bg-night px-5 font-mono text-night-text"
       // 다크 화면이라 레이아웃(main)이 준 safe-top 패딩까지 끌어올려 덮는다 —
       // 그러지 않으면 노치 영역만 셸의 흰 배경으로 남는다 (마이페이지와 같은 처리).
-      // 아래 여백은 모든 화면과 같은 20px 이다.
+      // 아래 여백 54px 은 디자인의 '홈 인디케이터 34px + 그 위 20px' 이다.
       style={{
         marginTop: 'calc(var(--safe-top) * -1)',
         paddingTop: 'var(--safe-top)',
-        paddingBottom: '20px',
+        paddingBottom: 'calc(max(var(--safe-bottom), 34px) + 20px)',
       }}
     >
       <header className="flex h-14 shrink-0 items-center justify-between">
@@ -45,13 +44,15 @@ export default async function ChallengeHistoryPage() {
           <Image src="/arrow-back.svg" alt="" width={28} height={28} unoptimized />
         </Link>
 
-        <h1 className="flex-1 text-center text-[20px] leading-none">완료한 챌린지</h1>
+        <h1 className="flex-1 text-center text-[20px] leading-none">공지사항</h1>
 
-        {/* 디자인의 오른쪽 닫기 아이콘은 보이지 않는다 — 제목이 가운데 오도록 자리만 잡는다 */}
+        {/* 제목이 가운데 오도록 뒤로가기와 같은 크기의 빈 자리를 둔다 */}
         <span aria-hidden className="-mr-2 size-11 shrink-0" />
       </header>
 
-      <ChallengeHistoryList first={first} membershipActive={membership.active} />
+      <div className="flex flex-1 flex-col">
+        <NoticeList first={first} />
+      </div>
     </div>
   );
 }

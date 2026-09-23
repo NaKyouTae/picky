@@ -72,7 +72,7 @@ export function ChallengeDrawOverlay({ label = '챌린지를 뽑고 있어요' }
     <div
       role="status"
       aria-live="polite"
-      className="fixed inset-0 z-[70] flex flex-col items-center justify-center gap-6 bg-night px-5 pb-[54px]"
+      className="fixed inset-0 z-[70] flex flex-col items-center justify-center gap-6 bg-night px-5 pb-[20px]"
     >
       <LoaderLottie />
       <p className="font-mono text-sm leading-none text-night-text">Pick your joy_</p>

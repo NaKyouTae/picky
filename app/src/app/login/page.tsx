@@ -38,22 +38,22 @@ export default async function LoginPage({
 
   return (
     // 디자인은 로고 묶음·버튼 묶음·©spectrum 을 24px 간격으로 쌓고,
-    // 위 20px / 아래 54px 여백을 준다. 로고 묶음이 남은 높이를 모두 가져간다.
+    // 위아래 20px 여백을 준다. 로고 묶음이 남은 높이를 모두 가져간다.
     // (Apple 로그인이 들어와 버튼이 셋이 되면서 간격이 48px 에서 24px 로 좁아졌다)
     <div
       className="flex flex-1 flex-col items-center gap-6 bg-night-text px-5 font-mono text-night"
-      // 메인과 같은 규칙 — 디자인의 하단 54px 은 '홈 인디케이터 34px + 여백 20px' 이다.
+      // 메인과 같은 규칙 — 하단 여백은 20px 이다.
       // 노치 영역까지 이 화면의 배경으로 덮은 뒤(그러지 않으면 셸의 흰색이 남는다)
       // 그 아래로 디자인의 상단 20px 을 준다.
       style={{
         marginTop: 'calc(var(--safe-top) * -1)',
         paddingTop: 'calc(var(--safe-top) + 20px)',
-        paddingBottom: 'calc(max(var(--safe-bottom), 34px) + 20px)',
+        paddingBottom: '20px',
       }}
     >
       {/* 로고 묶음은 버튼 위 남은 공간을 모두 차지하고 그 안에서 가운데 정렬된다 */}
       <div className="flex w-full flex-1 flex-col items-center justify-center gap-4 pt-9">
-        <Logo tone="black" wordmark="Picky" className="text-[36px] text-black" />
+        <Logo tone="black" className="text-[36px] text-black" />
         {/* 타이핑 애니메이션 — 폭이 늘면서 한 글자씩 드러나고 언더바가 커서처럼 따라간다.
             글자 수만큼 폭을 잡아 두어 타이핑 중에 문구가 좌우로 흔들리지 않는다. */}
         <p className="flex w-[14ch] text-[16px] leading-none">

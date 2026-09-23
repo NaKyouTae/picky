@@ -29,6 +29,7 @@ const MENU_GROUPS = [
       // 지금은 어드민에서 건드릴 일이 없어 메뉴만 감춰 둔다 —
       // 화면·API 는 그대로 살아 있으므로, 카테고리를 늘릴 때 이 줄만 되살리면 된다.
       // { href: '/challenge-categories', label: '챌린지 카테고리' },
+      { href: '/notices', label: '공지사항' },
       { href: '/challenges', label: '챌린지' },
       { href: '/collages', label: '콜라주' },
       { href: '/collage-lab', label: '콜라주 실험실' },

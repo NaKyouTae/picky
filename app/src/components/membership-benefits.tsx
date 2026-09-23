@@ -27,7 +27,7 @@ export function MembershipBenefits() {
 
       <ul className="flex flex-col gap-[10px]">
         {BENEFITS.map((benefit) => (
-          <li key={benefit.title} className="flex flex-col gap-4 rounded-lg bg-night-card p-5">
+          <li key={benefit.title} className="flex flex-col gap-[10px] rounded-lg bg-night-card p-5">
             <h3 className="text-[16px] font-medium leading-none">{benefit.title}</h3>
             <p className="text-[14px] leading-[1.6]">
               {benefit.description}
