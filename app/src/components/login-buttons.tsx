@@ -31,12 +31,13 @@ export function LoginButtons({ recent }: { recent?: OAuthProvider | null }) {
       </ProviderButton>
 
       {/* 애플은 선택이 아니다 — 소셜 로그인만 제공하는 앱은 함께 내야 심사를 통과한다
-          (App Store 심사 지침 4.8). 색·심볼은 애플의 표시 규정을 따라 검정 바탕에 흰 로고다. */}
+          (App Store 심사 지침 4.8). 바탕은 순검정(#000)이고 글자는 네이버 버튼과 같은
+          night-text(#fdfdfe) 다 — 디자인(4684:4072)이 정한 값이라 순백이 아니다. */}
       <ProviderButton
         provider="apple"
         label="Apple로 계속하기"
         recent={recent === 'apple'}
-        className="bg-black text-white"
+        className="bg-black text-night-text"
       >
         <AppleSymbol />
       </ProviderButton>

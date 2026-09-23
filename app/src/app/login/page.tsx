@@ -37,10 +37,11 @@ export default async function LoginPage({
   const recent = readRecentProvider(store.get(LAST_PROVIDER_COOKIE)?.value);
 
   return (
-    // 디자인은 로고 묶음·버튼 묶음·©spectrum 을 48px 간격으로 쌓고,
+    // 디자인은 로고 묶음·버튼 묶음·©spectrum 을 24px 간격으로 쌓고,
     // 위 20px / 아래 54px 여백을 준다. 로고 묶음이 남은 높이를 모두 가져간다.
+    // (Apple 로그인이 들어와 버튼이 셋이 되면서 간격이 48px 에서 24px 로 좁아졌다)
     <div
-      className="flex flex-1 flex-col items-center gap-12 bg-night-text px-5 font-mono text-night"
+      className="flex flex-1 flex-col items-center gap-6 bg-night-text px-5 font-mono text-night"
       // 메인과 같은 규칙 — 디자인의 하단 54px 은 '홈 인디케이터 34px + 여백 20px' 이다.
       // 노치 영역까지 이 화면의 배경으로 덮은 뒤(그러지 않으면 셸의 흰색이 남는다)
       // 그 아래로 디자인의 상단 20px 을 준다.
@@ -67,12 +68,12 @@ export default async function LoginPage({
 
       {/* 디자인에 없는 오류 문구는 흐름에서 빼 둔다 — 넣고 빼는 것만으로
           버튼 묶음이 위아래로 움직이면 디자인과 어긋나기 때문이다.
-          버튼과 ©spectrum 사이 48px 안에 그린다. */}
+          버튼과 ©spectrum 사이 24px 안에 그린다 — 간격이 좁아져 여백도 8px 로 줄였다. */}
       <div className="relative flex w-full flex-col items-center">
         <LoginButtons recent={recent} />
 
         {error && (
-          <p className="absolute inset-x-0 top-full mt-4 text-center text-[13px] text-[#d93b3b]">
+          <p className="absolute inset-x-0 top-full mt-2 text-center text-[13px] text-[#d93b3b]">
             {LOGIN_ERRORS[error] ?? '로그인 중 문제가 발생했습니다.'}
           </p>
         )}
