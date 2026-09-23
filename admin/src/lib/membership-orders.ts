@@ -1,19 +1,50 @@
 /** 서버(NestJS)의 admin-membership-orders 응답 타입 — 브라우저/서버 컴포넌트 공용 */
 
-export type MembershipOrderStatus = 'PENDING' | 'PAID' | 'FAILED';
+export type MembershipOrderStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
 
-export const MEMBERSHIP_ORDER_STATUSES: MembershipOrderStatus[] = ['PAID', 'PENDING', 'FAILED'];
+export const MEMBERSHIP_ORDER_STATUSES: MembershipOrderStatus[] = [
+  'PAID',
+  'PENDING',
+  'FAILED',
+  'REFUNDED',
+];
 
 export const MEMBERSHIP_ORDER_STATUS_LABELS: Record<MembershipOrderStatus, string> = {
   PAID: '결제 완료',
   PENDING: '결제 대기',
   FAILED: '결제 실패',
+  REFUNDED: '환불 완료',
 };
 
 export const MEMBERSHIP_ORDER_STATUS_STYLES: Record<MembershipOrderStatus, string> = {
   PAID: 'bg-emerald-50 text-emerald-700',
   PENDING: 'bg-amber-50 text-amber-700',
   FAILED: 'bg-gray-100 text-ink-sub',
+  REFUNDED: 'bg-rose-50 text-rose-700',
+};
+
+/** 결제를 처리한 스토어 — 환불 창구가 다르다 */
+export type MembershipStore = 'WEB' | 'APPLE';
+
+export const MEMBERSHIP_STORE_LABELS: Record<MembershipStore, string> = {
+  WEB: '토스',
+  APPLE: 'App Store',
+};
+
+export const MEMBERSHIP_STORE_STYLES: Record<MembershipStore, string> = {
+  WEB: 'bg-blue-50 text-blue-700',
+  APPLE: 'bg-gray-900 text-white',
+};
+
+/**
+ * 환불을 어디서 처리해야 하는지 — **CS 가 헷갈리면 안 되는 부분이다.**
+ *
+ * 인앱결제는 우리가 돈을 받은 것이 아니라 Apple 이 받아 정산해 주는 구조라,
+ * 토스 상점관리자에서도 우리 서버에서도 환불할 수 없다.
+ */
+export const MEMBERSHIP_REFUND_ROUTES: Record<MembershipStore, string> = {
+  WEB: '토스페이먼츠 상점관리자에서 결제 취소',
+  APPLE: 'Apple 에 직접 요청 (reportaproblem.apple.com) — 우리 쪽에서는 취소할 수 없음',
 };
 
 export type AdminMembershipOrder = {
@@ -25,9 +56,16 @@ export type AdminMembershipOrder = {
   months: number;
   amount: number;
   status: MembershipOrderStatus;
+  /** 어디서 결제했는지 — 환불 창구가 갈린다 */
+  store: MembershipStore;
   method: string | null;
+  /** 토스 결제 식별자 — WEB 주문에만 있다 */
   paymentKey: string | null;
+  /** App Store 거래 ID — APPLE 주문에만 있다 (Apple 에 문의할 때 기준값) */
+  appleTransactionId: string | null;
   paidAt: string | null;
+  /** 환불 시각 — Apple 알림으로 들어온다 (REFUNDED 일 때만) */
+  refundedAt: string | null;
   failReason: string | null;
   startsAt: string | null;
   endsAt: string | null;
@@ -41,7 +79,7 @@ export type AdminMembershipOrderPage = {
   nextCursor: string | null;
 };
 
-/** 환불이 없으므로 승인 합계가 곧 매출이다 */
+/** 환불된 주문은 PAID 에서 빠지므로 승인 합계가 곧 순매출이다 */
 export type MembershipOrderSummary = {
   paidCount: number;
   paidAmount: number;

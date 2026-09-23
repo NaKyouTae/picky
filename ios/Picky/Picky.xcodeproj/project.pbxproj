@@ -6,6 +6,11 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		A1CE00000000000000000015 /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = A1CE00000000000000000013 /* GoogleMobileAds */; };
+		A1CE00000000000000000016 /* GoogleUserMessagingPlatform in Frameworks */ = {isa = PBXBuildFile; productRef = A1CE00000000000000000014 /* GoogleUserMessagingPlatform */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		A1CE00000000000000000004 /* Picky.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Picky.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -36,6 +41,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A1CE00000000000000000015 /* GoogleMobileAds in Frameworks */,
+				A1CE00000000000000000016 /* GoogleUserMessagingPlatform in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -78,6 +85,8 @@
 			);
 			name = Picky;
 			packageProductDependencies = (
+				A1CE00000000000000000013 /* GoogleMobileAds */,
+				A1CE00000000000000000014 /* GoogleUserMessagingPlatform */,
 			);
 			productName = Picky;
 			productReference = A1CE00000000000000000004 /* Picky.app */;
@@ -109,6 +118,10 @@
 			mainGroup = A1CE00000000000000000002;
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
+			packageReferences = (
+				A1CE00000000000000000011 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */,
+				A1CE00000000000000000012 /* XCRemoteSwiftPackageReference "swift-package-manager-google-user-messaging-platform" */,
+			);
 			productRefGroup = A1CE00000000000000000003 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -270,6 +283,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 43599V7UL7;
 				ENABLE_PREVIEWS = YES;
+				GAD_APPLICATION_IDENTIFIER = "ca-app-pub-3940256099942544~1458002511";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Picky/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Picky;
@@ -307,6 +321,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 43599V7UL7;
 				ENABLE_PREVIEWS = YES;
+				GAD_APPLICATION_IDENTIFIER = "ca-app-pub-0000000000000000~0000000000";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Picky/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Picky;
@@ -356,6 +371,38 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A1CE00000000000000000011 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/googleads/swift-package-manager-google-mobile-ads.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 13.10.0;
+			};
+		};
+		A1CE00000000000000000012 /* XCRemoteSwiftPackageReference "swift-package-manager-google-user-messaging-platform" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/googleads/swift-package-manager-google-user-messaging-platform.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.1.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A1CE00000000000000000013 /* GoogleMobileAds */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1CE00000000000000000011 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */;
+			productName = GoogleMobileAds;
+		};
+		A1CE00000000000000000014 /* GoogleUserMessagingPlatform */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1CE00000000000000000012 /* XCRemoteSwiftPackageReference "swift-package-manager-google-user-messaging-platform" */;
+			productName = GoogleUserMessagingPlatform;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A1CE00000000000000000001 /* Project object */;
 }

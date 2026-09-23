@@ -6,6 +6,7 @@ import { Modal } from '@/components/modal';
 import {
   MAX_MONTHS,
   MAX_PRICE,
+  discountPercent,
   formatKrw,
   monthlyPrice,
   type AdminMembershipPlan,
@@ -17,7 +18,9 @@ type FormValues = {
   name: string;
   months: string;
   price: string;
+  listPrice: string;
   description: string;
+  appleProductId: string;
   displayOrder: string;
   isActive: boolean;
 };
@@ -26,7 +29,9 @@ const EMPTY: FormValues = {
   name: '',
   months: '1',
   price: '',
+  listPrice: '',
   description: '',
+  appleProductId: '',
   displayOrder: '0',
   isActive: true,
 };
@@ -60,7 +65,9 @@ export function MembershipPlansTable({ plans }: { plans: AdminMembershipPlan[] }
             name: target.name,
             months: String(target.months),
             price: String(target.price),
+            listPrice: target.listPrice === null ? '' : String(target.listPrice),
             description: target.description ?? '',
+            appleProductId: target.appleProductId ?? '',
             displayOrder: String(target.displayOrder),
             isActive: target.isActive,
           },
@@ -81,7 +88,10 @@ export function MembershipPlansTable({ plans }: { plans: AdminMembershipPlan[] }
       name: values.name.trim(),
       months: Number(values.months),
       price: Number(values.price),
+      // 빈칸은 null — 할인 표시를 지운다는 뜻이다
+      listPrice: values.listPrice.trim() === '' ? null : Number(values.listPrice),
       description: values.description.trim() || null,
+      appleProductId: values.appleProductId.trim() || null,
       displayOrder: Number(values.displayOrder) || 0,
       isActive: values.isActive,
     };
@@ -172,7 +182,13 @@ export function MembershipPlansTable({ plans }: { plans: AdminMembershipPlan[] }
             <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-line pt-2 text-xs text-ink-sub">
               <span className="font-medium text-ink">{plan.months}개월</span>
               <span className="font-medium text-ink">{formatKrw(plan.price)}</span>
+              {plan.listPrice !== null && (
+                <span>
+                  <s>{formatKrw(plan.listPrice)}</s> {discountPercent(plan.price, plan.listPrice)}%
+                </span>
+              )}
               <span>{monthlyPrice(plan.price, plan.months)}</span>
+              {!plan.appleProductId && <span className="text-amber-700">iOS 미연결</span>}
               <span className="ml-auto">{formatDateTime(plan.updatedAt)}</span>
             </div>
           </button>
@@ -202,6 +218,9 @@ export function MembershipPlansTable({ plans }: { plans: AdminMembershipPlan[] }
                 설명
               </th>
               <th scope="col" className="px-4 py-3 font-medium">
+                App Store 상품 ID
+              </th>
+              <th scope="col" className="px-4 py-3 font-medium">
                 판매
               </th>
               <th scope="col" className="px-4 py-3 font-medium">
@@ -213,7 +232,7 @@ export function MembershipPlansTable({ plans }: { plans: AdminMembershipPlan[] }
           <tbody>
             {plans.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-4 py-10 text-center text-ink-sub">
+                <td colSpan={10} className="px-4 py-10 text-center text-ink-sub">
                   등록된 회원권이 없습니다.
                 </td>
               </tr>
@@ -223,9 +242,20 @@ export function MembershipPlansTable({ plans }: { plans: AdminMembershipPlan[] }
                 <td className="px-4 py-3 text-ink-sub">{plan.displayOrder}</td>
                 <td className="px-4 py-3 font-medium">{plan.name}</td>
                 <td className="px-4 py-3">{plan.months}개월</td>
-                <td className="px-4 py-3 font-medium">{formatKrw(plan.price)}</td>
+                <td className="px-4 py-3 font-medium">
+                  {formatKrw(plan.price)}
+                  {plan.listPrice !== null && (
+                    <span className="mt-0.5 block text-xs font-normal text-ink-sub">
+                      <s>{formatKrw(plan.listPrice)}</s>{' '}
+                      {discountPercent(plan.price, plan.listPrice)}%
+                    </span>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-ink-sub">{monthlyPrice(plan.price, plan.months)}</td>
                 <td className="px-4 py-3 text-ink-sub">{plan.description ?? '—'}</td>
+                <td className="px-4 py-3 text-ink-sub">
+                  {plan.appleProductId ?? <span className="text-amber-700">미연결</span>}
+                </td>
                 <td className="px-4 py-3">
                   <span
                     className={`rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -272,7 +302,7 @@ export function MembershipPlansTable({ plans }: { plans: AdminMembershipPlan[] }
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
               <label htmlFor="months" className={LABEL}>
                 기간 (개월)
@@ -294,7 +324,7 @@ export function MembershipPlansTable({ plans }: { plans: AdminMembershipPlan[] }
             </div>
             <div>
               <label htmlFor="price" className={LABEL}>
-                금액 (원)
+                판매 금액 (원)
               </label>
               <input
                 id="price"
@@ -305,15 +335,35 @@ export function MembershipPlansTable({ plans }: { plans: AdminMembershipPlan[] }
                 value={values.price}
                 onChange={(event) => set('price', event.target.value)}
                 required
-                placeholder="3900"
+                placeholder="24900"
                 className={FIELD}
               />
               {/* 자릿수 실수를 바로 알아차리도록 입력값을 사람이 읽는 형태로 되비춘다 */}
               <p className="mt-1 text-xs text-ink-sub">
-                {values.price === '' ? ' ' : formatKrw(Number(values.price))}
+                {values.price === '' ? '실제로 청구되는 금액' : formatKrw(Number(values.price))}
               </p>
             </div>
+            <div>
+              <label htmlFor="listPrice" className={LABEL}>
+                정가 (원, 선택)
+              </label>
+              <input
+                id="listPrice"
+                type="number"
+                min={0}
+                max={MAX_PRICE}
+                step={100}
+                value={values.listPrice}
+                onChange={(event) => set('listPrice', event.target.value)}
+                placeholder="29900"
+                className={FIELD}
+              />
+              <p className="mt-1 text-xs text-ink-sub">할인 전 금액 — 앱에 취소선으로 보입니다.</p>
+            </div>
           </div>
+
+          {/* 두 금액의 관계를 저장 전에 그대로 되비춘다 — 서버도 같은 조건으로 거절한다 */}
+          <PriceHint price={values.price} listPrice={values.listPrice} />
 
           <div>
             <label htmlFor="description" className={LABEL}>
@@ -327,6 +377,24 @@ export function MembershipPlansTable({ plans }: { plans: AdminMembershipPlan[] }
               placeholder="유료 템플릿 무제한"
               className={FIELD}
             />
+          </div>
+
+          <div>
+            <label htmlFor="appleProductId" className={LABEL}>
+              App Store 상품 ID
+            </label>
+            <input
+              id="appleProductId"
+              value={values.appleProductId}
+              onChange={(event) => set('appleProductId', event.target.value)}
+              maxLength={120}
+              placeholder="kr.spectrify.picky.membership.1m"
+              className={FIELD}
+            />
+            <p className="mt-1 text-xs text-ink-sub">
+              App Store Connect 에 등록한 인앱결제 상품 ID 와 똑같아야 합니다. 비워 두면 iOS
+              앱에서는 이 회원권이 보이지 않습니다 (웹 결제는 영향 없음).
+            </p>
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -393,6 +461,35 @@ export function MembershipPlansTable({ plans }: { plans: AdminMembershipPlan[] }
         </form>
       </Modal>
     </div>
+  );
+}
+
+/**
+ * 판매 금액 · 정가 미리보기.
+ *
+ * 앱에 나갈 문구(취소선 + 할인율)를 저장 전에 그대로 보여 준다. 두 값을 바꿔 넣으면
+ * 서버가 400 으로 거절하므로, 같은 조건을 여기서 먼저 알려 저장 버튼을 헛치지 않게 한다.
+ */
+function PriceHint({ price, listPrice }: { price: string; listPrice: string }) {
+  if (listPrice.trim() === '' || price.trim() === '') return null;
+
+  const sale = Number(price);
+  const list = Number(listPrice);
+  if (!Number.isFinite(sale) || !Number.isFinite(list)) return null;
+
+  if (list <= sale) {
+    return (
+      <p className="text-sm text-brand-600">
+        정가는 판매 금액보다 커야 합니다. 할인이 없으면 정가를 비워 두세요.
+      </p>
+    );
+  }
+
+  return (
+    <p className="text-sm text-ink-sub">
+      앱 표시: <s>{formatKrw(list)}</s> <strong className="text-ink">{formatKrw(sale)}</strong> (
+      {discountPercent(sale, list)}% 할인)
+    </p>
   );
 }
 

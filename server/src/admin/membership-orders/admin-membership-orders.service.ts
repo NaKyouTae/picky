@@ -13,9 +13,14 @@ const ORDER_SELECT = {
   months: true,
   amount: true,
   status: true,
+  // 환불 창구가 스토어마다 다르다 (WEB=토스 상점관리자, APPLE=Apple).
+  // CS 가 어디로 안내할지 이 값으로 갈린다.
+  store: true,
   method: true,
   paymentKey: true,
+  appleTransactionId: true,
   paidAt: true,
+  refundedAt: true,
   failReason: true,
   startsAt: true,
   endsAt: true,

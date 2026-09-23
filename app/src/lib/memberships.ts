@@ -9,12 +9,25 @@ export type MembershipPlan = {
   name: string;
   /** 구매 시 늘어나는 이용 기간 (개월) */
   months: number;
-  /** 판매 금액 (원) */
+  /** 판매 금액 (원) — 실제로 청구되는 금액이다 (웹은 토스 결제 금액) */
   price: number;
+  /**
+   * 할인 전 정가 (원) — 어드민이 넣었을 때만 있다.
+   * 청구 금액이 아니라 취소선으로 함께 보여 주는 값이다.
+   */
+  listPrice: number | null;
   description: string | null;
+  /**
+   * App Store 인앱결제 상품 ID.
+   * iOS 앱은 이 값으로 StoreKit 상품을 찾는다 — 비어 있으면 앱에서 팔 수 없다.
+   */
+  appleProductId: string | null;
 };
 
-export type MembershipOrderStatus = 'PENDING' | 'PAID' | 'FAILED';
+export type MembershipOrderStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
+
+/** 결제를 처리한 스토어 — 환불 창구가 다르다 (WEB=우리, APPLE=Apple) */
+export type MembershipStore = 'WEB' | 'APPLE';
 
 /** 내 결제 내역 한 건 */
 export type MembershipOrder = {
@@ -25,9 +38,12 @@ export type MembershipOrder = {
   months: number;
   amount: number;
   status: MembershipOrderStatus;
-  /** 토스가 알려준 결제수단 (카드 등) — 승인 전에는 null */
+  store: MembershipStore;
+  /** 결제수단 표기 — 토스는 '카드' 등, 인앱결제는 'App Store' */
   method: string | null;
   paidAt: string | null;
+  /** 환불 시각 — REFUNDED 일 때만 채워진다 */
+  refundedAt: string | null;
   failReason: string | null;
   startsAt: string | null;
   endsAt: string | null;

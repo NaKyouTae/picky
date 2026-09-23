@@ -18,7 +18,7 @@ export default function RefundPage() {
       <PageHeader title="환불정책" />
 
       <article className="space-y-6 px-5 pb-6 pt-4 text-sm leading-relaxed text-ink-sub">
-        <p className="text-right text-xs">시행일자: 2026년 9월 21일</p>
+        <p className="text-right text-xs">시행일자: 2026년 9월 23일</p>
 
         <section>
           <h2 className="mb-2 text-sm font-semibold text-ink">1. 기본 원칙</h2>
@@ -76,8 +76,47 @@ export default function RefundPage() {
           </ol>
         </section>
 
+        {/* iOS 앱은 App Store 인앱결제로 판다 — 대금을 Apple 이 수령하므로 회사가 취소할 수
+            없다. 이 조항이 없으면 앱에서 결제한 회원이 고객센터로 헛걸음하게 된다. */}
         <section>
-          <h2 className="mb-2 text-sm font-semibold text-ink">5. 환불 신청 방법</h2>
+          <h2 className="mb-2 text-sm font-semibold text-ink">5. 앱 내 결제(In-App Purchase)</h2>
+          <ol className="list-decimal space-y-2 pl-5">
+            <li>
+              iOS 앱에서 구매한 회원권은 Apple의 App Store를 통해 결제되며, 결제 대금은 Apple이
+              수령합니다.
+            </li>
+            <li>
+              이 경우 환불은 <strong>Apple의 환불 정책과 절차에 따라 Apple이 처리</strong>하며,
+              회사가 직접 결제를 취소하거나 환불할 수 없습니다.
+            </li>
+            <li>
+              환불 요청은{' '}
+              <a
+                href="https://reportaproblem.apple.com"
+                target="_blank"
+                rel="noreferrer"
+                className="underline underline-offset-2"
+              >
+                reportaproblem.apple.com
+              </a>{' '}
+              에서 Apple 계정으로 로그인해 접수할 수 있습니다.
+            </li>
+            <li>
+              어느 경로로 결제했는지는 마이페이지 &gt; 결제 내역의 &lsquo;결제처&rsquo;에서 확인할
+              수 있습니다.
+            </li>
+            <li>
+              Apple의 환불 심사 결과와 무관하게, 회사의 귀책사유로 서비스를 이용하지 못한 경우에는
+              제3항에 따른 보상을 요청할 수 있습니다.
+            </li>
+          </ol>
+        </section>
+
+        <section>
+          <h2 className="mb-2 text-sm font-semibold text-ink">6. 환불 신청 방법</h2>
+          <p className="mb-2">
+            아래는 웹에서 결제한 회원권에 해당합니다. 앱 내 결제는 제5항을 따릅니다.
+          </p>
           <ol className="list-decimal space-y-2 pl-5">
             <li>
               환불은 고객센터 이메일(
@@ -120,7 +159,7 @@ export default function RefundPage() {
         </section>
 
         <section>
-          <h2 className="mb-2 text-sm font-semibold text-ink">6. 환불 처리 기간</h2>
+          <h2 className="mb-2 text-sm font-semibold text-ink">7. 환불 처리 기간</h2>
           <ol className="list-decimal space-y-2 pl-5">
             <li>환불은 결제 시 사용한 결제 수단으로 동일하게 처리되는 것을 원칙으로 합니다.</li>
             <li>
@@ -131,7 +170,7 @@ export default function RefundPage() {
         </section>
 
         <section>
-          <h2 className="mb-2 text-sm font-semibold text-ink">7. 문의</h2>
+          <h2 className="mb-2 text-sm font-semibold text-ink">8. 문의</h2>
           <p>
             환불 및 결제 관련 문의는 고객센터 이메일(
             <a href={`mailto:${SUPPORT_EMAIL}`} className="underline underline-offset-2">

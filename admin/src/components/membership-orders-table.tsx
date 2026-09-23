@@ -7,14 +7,17 @@ import {
   MEMBERSHIP_ORDER_STATUS_STYLES,
   ORDER_PAGE_SIZE,
   formatKrw,
+  MEMBERSHIP_REFUND_ROUTES,
+  MEMBERSHIP_STORE_LABELS,
+  MEMBERSHIP_STORE_STYLES,
   type AdminMembershipOrderPage,
   type MembershipOrderStatus,
   type MembershipOrderSummary,
 } from '@/lib/membership-orders';
 import { formatDateTime } from '@/lib/users';
 
-// 구매자·회원권·기간·금액·수단·상태·주문번호·결제일시
-const COLUMN_COUNT = 8;
+// 구매자·회원권·기간·금액·결제처·수단·상태·주문번호·결제일시
+const COLUMN_COUNT = 9;
 
 /** 응답과 그 응답을 받았을 때의 조회 조건을 함께 보관해 현재 조건과 대조한다 */
 type Loaded = {
@@ -172,6 +175,9 @@ export function MembershipOrdersTable({ summary }: { summary: MembershipOrderSum
                 금액
               </th>
               <th scope="col" className="px-4 py-3 font-medium">
+                결제처
+              </th>
+              <th scope="col" className="px-4 py-3 font-medium">
                 수단
               </th>
               <th scope="col" className="px-4 py-3 font-medium">
@@ -230,6 +236,18 @@ export function MembershipOrdersTable({ summary }: { summary: MembershipOrderSum
                       : '—'}
                   </td>
                   <td className="px-4 py-3 font-medium">{formatKrw(order.amount)}</td>
+                  {/* 환불 창구가 여기서 갈린다 — App Store 결제는 우리가 취소할 수 없다.
+                      title 로 안내 문구를 달아 CS 가 바로 확인할 수 있게 한다. */}
+                  <td className="px-4 py-3">
+                    <span
+                      title={MEMBERSHIP_REFUND_ROUTES[order.store]}
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                        MEMBERSHIP_STORE_STYLES[order.store]
+                      }`}
+                    >
+                      {MEMBERSHIP_STORE_LABELS[order.store]}
+                    </span>
+                  </td>
                   <td className="px-4 py-3 text-ink-sub">{order.method ?? '—'}</td>
                   <td className="px-4 py-3">
                     <span

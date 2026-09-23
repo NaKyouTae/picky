@@ -9,6 +9,11 @@ import { Modal, type DialogState } from '@/components/modal';
 import type { ChallengeProof } from '@/lib/challenge-proofs';
 import { MAX_CHALLENGES_PER_GROUP, slotStatus, type ChallengeGroup } from '@/lib/challenges';
 import { compressImage } from '@/lib/compress-image';
+import {
+  prepareRewardedAd,
+  showRewardedAd,
+  useIsRewardedAdAvailable,
+} from '@/lib/native-app';
 import { cn } from '@/lib/utils';
 
 /**
@@ -39,6 +44,8 @@ function releaseProof(proof: Proof | undefined) {
  * 진행 중인 챌린지 그룹 화면 (디자인 4605:6169).
  *
  * - **다시 뽑기**: 현재 칸의 챌린지만 교체한다 (칸 번호는 그대로).
+ *   앱에서는 보상형 광고를 끝까지 봐야 교체된다 — 버튼에 '(Ad)' 를 달고 먼저 동의를 받는다
+ *   (AdMob 보상형 정책: 광고임을 알리고 사용자가 스스로 고르게 해야 한다).
  * - **등록하기**: 올린 인증 사진으로 현재 챌린지를 완료하고 다음 칸을 새로 뽑는다.
  *   5번째를 완료하면 그룹이 끝나고 콜라주 화면으로 넘어간다.
  *
@@ -77,9 +84,24 @@ export function ChallengeGroupScreen({ group: initialGroup }: { group: Challenge
   const [sheet, setSheet] = useState<DialogState>('closed');
   /** 사진만 올리고 등록하지 않은 채 나가려 할 때 뜨는 확인 모달 (디자인 4636:3700) */
   const [leaving, setLeaving] = useState<DialogState>('closed');
+  /**
+   * 다시 뽑기 전에 광고를 볼지 묻는 모달.
+   *
+   * 버튼을 누르자마자 광고를 띄우면 AdMob 보상형 정책(사전 동의)에 걸린다 —
+   * 무엇을 주고 무엇을 요구하는지 알린 뒤 한 번 더 고르게 하는 자리다.
+   */
+  const [adConsent, setAdConsent] = useState<DialogState>('closed');
+  /** 광고를 불러오는 중 · 보는 중 — 그동안 버튼을 모두 잠근다 */
+  const [watchingAd, setWatchingAd] = useState(false);
   // 카메라와 사진첩은 input 의 capture 속성으로 갈린다 — 둘을 따로 둔다.
   const cameraInput = useRef<HTMLInputElement>(null);
   const libraryInput = useRef<HTMLInputElement>(null);
+
+  /**
+   * 보상형 광고를 띄울 수 있는지 (= 앱 안에서 열렸는지).
+   * 개발용 브라우저에는 브리지가 없어 false 이고, 그때는 광고 없이 바로 다시 뽑는다.
+   */
+  const adAvailable = useIsRewardedAdAvailable();
 
   // 아직 완료하지 않은 칸이 지금 할 챌린지다.
   const current = group.items.find((item) => item.completedAt === null);
@@ -101,7 +123,7 @@ export function ChallengeGroupScreen({ group: initialGroup }: { group: Challenge
   const position = viewed?.position;
   const proofUrl = position ? (proofs[position]?.url ?? null) : null;
   // 끝난 그룹에서는 어떤 동작도 할 수 없으므로 잠금에 함께 넣는다.
-  const busy = pending !== null || uploading || finished;
+  const busy = pending !== null || uploading || watchingAd || finished;
 
   /**
    * 아직 주소를 모르는 사진이 있는 칸.
@@ -113,6 +135,16 @@ export function ChallengeGroupScreen({ group: initialGroup }: { group: Challenge
     .filter((item) => item.proofImagePath !== null && !proofs[item.position])
     .map((item) => item.position);
   const missingKey = missingPositions.join(',');
+
+  /**
+   * 광고를 미리 받아 둔다.
+   *
+   * 버튼을 누른 뒤에 받기 시작하면 광고가 뜨기까지 몇 초를 기다리게 된다.
+   * 되돌아보기 전용(끝난 그룹)에는 다시 뽑기가 없으므로 받지 않는다.
+   */
+  useEffect(() => {
+    if (adAvailable && !finished) prepareRewardedAd();
+  }, [adAvailable, finished]);
 
   /**
    * 주소를 모르는 칸의 사진을 한 번에 받아 온다.
@@ -269,6 +301,49 @@ export function ChallengeGroupScreen({ group: initialGroup }: { group: Challenge
   function openPicker(input: HTMLInputElement | null) {
     input?.click();
     setSheet('closing');
+  }
+
+  /**
+   * 다시 뽑기 진입.
+   *
+   * 앱에서는 곧바로 뽑지 않고 광고를 볼지 먼저 묻는다 — 버튼을 누른 것만으로 광고가 뜨면
+   * '사용자가 스스로 고른다' 는 보상형 광고의 전제가 깨진다.
+   * 브리지가 없는 개발용 브라우저에서는 예전처럼 바로 뽑는다.
+   */
+  function handleRedraw() {
+    if (adAvailable) {
+      setAdConsent('open');
+      return;
+    }
+    void call('REDRAW');
+  }
+
+  /**
+   * 광고를 끝까지 본 뒤에만 다시 뽑는다.
+   *
+   * 중간에 닫았으면(`cancelled`) 아무것도 하지 않는다 — 보상형 광고는 완료한 사람에게만
+   * 보상을 줘야 하고, 사용자도 왜 안 뽑혔는지 알아야 하므로 문구로 남긴다.
+   */
+  async function watchAdThenRedraw() {
+    setAdConsent('closing');
+    setError(null);
+    setWatchingAd(true);
+
+    const result = await showRewardedAd();
+    if (!result.ok) {
+      setWatchingAd(false);
+      setError(
+        result.reason === 'cancelled'
+          ? '광고를 끝까지 봐야 다시 뽑을 수 있어요.'
+          : '지금은 광고를 불러올 수 없어요. 잠시 후 다시 시도해 주세요.',
+      );
+      return;
+    }
+
+    // 로딩 화면이 끊기지 않도록 다시 뽑기가 시작된 뒤에 내린다
+    // (먼저 내리면 두 상태 사이에서 오버레이가 한 프레임 깜빡인다).
+    await call('REDRAW');
+    setWatchingAd(false);
   }
 
   async function call(action: Exclude<Pending, null>) {
@@ -467,13 +542,17 @@ export function ChallengeGroupScreen({ group: initialGroup }: { group: Challenge
       </ol>
 
       <div className="flex shrink-0 gap-2.5">
+        {/* 광고가 붙는 자리라 '(Ad)' 를 라벨에 박아 둔다 — 광고임을 숨기면
+            AdMob 보상형 정책과 표시광고법(기만적 표시·광고) 양쪽에 걸린다.
+            읽어 주는 이름은 무엇을 하면 무엇을 얻는지까지 풀어 준다. */}
         <button
           type="button"
-          onClick={() => void call('REDRAW')}
+          onClick={handleRedraw}
           disabled={busy || !viewed}
+          aria-label={adAvailable ? '광고 보고 다시 뽑기' : undefined}
           className="h-[52px] flex-1 rounded-lg bg-night-raised text-[16px] font-medium leading-none active:bg-night-raised/70 disabled:opacity-40"
         >
-          다시 뽑기
+          {adAvailable ? '다시 뽑기(Ad)' : '다시 뽑기'}
         </button>
         {/* 끝난 그룹에서는 등록할 것이 없으므로 같은 자리에서 콜라주로 되돌아가는 길이 된다 */}
         <button
@@ -524,6 +603,46 @@ export function ChallengeGroupScreen({ group: initialGroup }: { group: Challenge
         </div>
       </Modal>
 
+      {/* 광고를 보기 전 동의 — 보상형 광고는 '무엇을 주는지 알리고 스스로 고르게' 해야 한다 */}
+      <Modal
+        state={adConsent}
+        onRequestClose={() => setAdConsent('closing')}
+        onClosed={() => setAdConsent('closed')}
+        labelledBy="challenge-ad-title"
+        panelClassName="bg-night-card p-5 font-mono text-night-text"
+        overlayClassName="bg-black/60"
+        containerClassName="px-5"
+      >
+        <p
+          id="challenge-ad-title"
+          className="py-2 text-center text-[16px] leading-[1.6] [word-break:keep-all]"
+        >
+          광고를 끝까지 보면
+          <br />
+          챌린지를 한 번 다시 뽑을 수 있어요.
+        </p>
+        <p className="mt-2 text-center text-[13px] leading-[1.6] text-night-sub [word-break:keep-all]">
+          중간에 닫으면 다시 뽑기가 적용되지 않아요.
+        </p>
+
+        <div className="mt-6 flex gap-2.5">
+          <button
+            type="button"
+            onClick={() => setAdConsent('closing')}
+            className="h-13 flex-1 rounded-lg bg-night-raised text-[16px] font-medium text-night-text active:bg-night-raised/80"
+          >
+            닫기
+          </button>
+          <button
+            type="button"
+            onClick={() => void watchAdThenRedraw()}
+            className="h-13 flex-1 rounded-lg bg-point text-[16px] font-medium text-night active:bg-point/80"
+          >
+            광고 보기
+          </button>
+        </div>
+      </Modal>
+
       <ChallengePhotoSheet
         state={sheet}
         onTakePhoto={() => openPicker(cameraInput.current)}
@@ -531,6 +650,10 @@ export function ChallengeGroupScreen({ group: initialGroup }: { group: Challenge
         onRequestClose={() => setSheet('closing')}
         onClosed={() => setSheet('closed')}
       />
+
+      {/* 광고가 뜨기까지의 빈 시간도 같은 로더로 덮는다. 광고가 화면을 가져간 뒤에는
+          이 오버레이가 그 아래에 남아, 광고를 닫는 순간 곧바로 두구두구로 이어진다. */}
+      {watchingAd && pending === null && <ChallengeDrawOverlay label="광고를 불러오고 있어요" />}
 
       {/* 등록하기에는 로딩을 두지 않는다 — 다시 뽑기(와 홈의 첫 시작), 그리고
           마지막 칸을 끝내 콜라주로 넘어갈 때만 두구두구를 덮는다 */}

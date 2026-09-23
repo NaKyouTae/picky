@@ -14,7 +14,8 @@ import {
   releasePhoto,
   type CollagePhoto,
 } from '@/lib/collage-photo';
-import { isNativeApp, saveImageToPhotos } from '@/lib/native-app';
+import { keepCollage } from '@/lib/collages';
+import { saveImageBlob } from '@/lib/save-image';
 import { cn } from '@/lib/utils';
 import { coverCrop, drawCollage, type SlotFill } from '@picky/collage';
 
@@ -24,6 +25,7 @@ const PREVIEW_WIDTH = 860;
 export function CollageMaker({
   templates,
   proofs,
+  groupId,
   hasMembership,
   membershipHref,
   backHref,
@@ -31,7 +33,15 @@ export function CollageMaker({
   templates: CollageTemplate[];
   /** 완료한 챌린지의 인증 사진 — 화면을 열 때 순서대로 채운다 */
   proofs: ChallengeProof[];
-  /** 회원권이 살아 있으면 유료 템플릿도 쓸 수 있다 */
+  /**
+   * 이 콜라주를 만든 챌린지 그룹 — 보관함의 키다 (그룹당 한 장).
+   * null 이면(직접 들어온 경우) 보관하지 않는다. 어느 챌린지의 결과물인지 알 수 없어서다.
+   */
+  groupId: string | null;
+  /**
+   * 회원권이 살아 있으면 유료 템플릿도 쓸 수 있다.
+   * 완성본 보관은 등급을 가리지 않는다 — 다시 받을 때만 회원권을 본다('완료한 챌린지').
+   */
   hasMembership: boolean;
   /** 잠긴 템플릿을 눌렀을 때 갈 구매 화면 — 결제 후 이 화면으로 돌아오도록 경로를 달고 있다 */
   membershipHref: string;
@@ -351,11 +361,10 @@ export function CollageMaker({
   }
 
   /**
-   * 내려받기.
+   * 내려받기 — 공유를 쓸 수 없는 브라우저의 폴백 경로다 (아래 result 오버레이).
    *
-   * 웹에서는 앵커에 blob URL 을 달아 브라우저 저장을 부른다.
-   * 네이티브 앱(WKWebView)은 `<a download>` 를 무시해서 이 방식이 아무 일도 하지 않으므로,
-   * PNG 를 네이티브로 넘겨 사진 앱에 담는다 (ios/Picky/Picky/WebView.swift).
+   * 기기에 저장하고 보관함에도 같은 이미지를 올린다. 보관은 기다리지 않는다 —
+   * 저장은 이미 끝났고 업로드는 몇 MB 라, 그동안 버튼을 잡아 두면 저장이 안 된 것처럼 보인다.
    */
   async function download(): Promise<boolean> {
     if (!canExport || saving) return false;
@@ -365,30 +374,60 @@ export function CollageMaker({
     try {
       const blob = await renderBlob();
 
-      if (isNativeApp()) {
-        const saved = await saveImageToPhotos(blob);
-        if (saved.ok) {
-          setNotice('사진을 저장했어요.');
-        } else if (saved.reason === 'denied') {
-          setError('사진 접근을 허용해야 저장할 수 있어요. 설정에서 바꿔 주세요.');
-        } else {
-          setError('저장하지 못했어요. 다시 시도해 주세요.');
-        }
-        return saved.ok;
+      const saved = await saveImageBlob(blob, `picky-${Date.now()}.png`);
+      if (!saved.ok) {
+        setError(saved.message);
+        return false;
       }
-
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = `picky-${Date.now()}.png`;
-      anchor.click();
-      // 클릭 직후 바로 거둬들이면 저장이 시작되기 전에 끊길 수 있다.
-      setTimeout(() => URL.revokeObjectURL(url), 10_000);
       setNotice('사진을 저장했어요.');
+
+      // 그룹당 한 장이라 '콜라주 완성' 으로 이미 올렸더라도 덮어쓸 뿐이다.
+      if (groupId) {
+        void keepCollage(groupId, blob).catch(() =>
+          setNotice('보관함에 담지 못했어요. 다시 내려받으면 담깁니다.'),
+        );
+      }
       return true;
     } catch {
       setError('저장하지 못했어요. 다시 시도해 주세요.');
       return false;
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  /**
+   * 콜라주 완성 — 보관함에 올리고, 기기에 내려받고, 메인으로 돌아간다 (디자인 4636:4014).
+   *
+   * **보관을 먼저 한다.** 기기에 먼저 저장하면 보관이 실패했을 때 다시 눌러야 하는데,
+   * 그러면 사진첩에 같은 그림이 두 장 남는다. 보관은 그룹당 한 장이라 다시 눌러도 덮어쓴다.
+   *
+   * 회원 등급을 가리지 않고 모두 보관한다 — 나중에 '완료한 챌린지' 에서 다시 받을 때만
+   * 회원권을 확인한다(서버). 무료 사용자도 지금 이 자리에서는 자기 콜라주를 받아 간다.
+   *
+   * 실패하면 화면에 남아 다시 누를 수 있게 한다. 넘어가 버리면 이 화면의 사진은
+   * 브라우저 메모리에만 있어서 되돌아와도 비어 있다.
+   */
+  async function complete() {
+    if (!canExport || saving) return;
+    setSaving(true);
+    setError(null);
+
+    try {
+      const blob = await renderBlob();
+
+      if (groupId) await keepCollage(groupId, blob);
+
+      const saved = await saveImageBlob(blob, `picky-${Date.now()}.png`);
+      if (!saved.ok) {
+        setError(saved.message);
+        return;
+      }
+
+      // replace 로 나간다 — 뒤로 가도 이 화면으로 돌아오지 않게 (사진이 이미 비어 있다).
+      router.replace('/');
+    } catch {
+      setError('저장하지 못했어요. 다시 시도해 주세요.');
     } finally {
       setSaving(false);
     }
@@ -451,27 +490,16 @@ export function CollageMaker({
           <Image src="/arrow-back.svg" alt="" width={28} height={28} unoptimized />
         </button>
 
-        <div className="absolute right-0 flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => void share()}
-            disabled={!canExport || saving}
-            aria-label="콜라주 공유하기"
-            className="flex size-7 items-center justify-center active:opacity-60 disabled:opacity-40"
-          >
-            <Image src="/share.svg" alt="" width={19} height={20} unoptimized />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => void download()}
-            disabled={!canExport || saving}
-            aria-label="콜라주 저장하기"
-            className="flex size-7 items-center justify-center active:opacity-60 disabled:opacity-40"
-          >
-            <Image src="/download.svg" alt="" width={28} height={28} unoptimized />
-          </button>
-        </div>
+        {/* 내려받기는 아래 '콜라주 완성' 버튼으로 옮겼다 — 헤더에는 공유만 남는다 (디자인 4650:4245) */}
+        <button
+          type="button"
+          onClick={() => void share()}
+          disabled={!canExport || saving}
+          aria-label="콜라주 공유하기"
+          className="absolute right-0 flex size-7 items-center justify-center active:opacity-60 disabled:opacity-40"
+        >
+          <Image src="/share.svg" alt="" width={19} height={20} unoptimized />
+        </button>
       </header>
 
       {/* 미리보기 — 디자인(4636:3996)의 309x548(= 세로 9:16) 회색 판.
@@ -540,12 +568,16 @@ export function CollageMaker({
           템플릿 선택
         </button>
 
-        <Link
-          href="/"
-          className="flex h-[52px] flex-1 items-center justify-center rounded-lg bg-point px-5 text-[16px] font-medium text-night active:bg-main"
+        <button
+          type="button"
+          onClick={() => void complete()}
+          disabled={!canExport || saving}
+          className="flex h-[52px] flex-1 items-center justify-center gap-2.5 rounded-lg bg-point px-5 text-[16px] font-medium text-night active:bg-main disabled:opacity-40"
         >
-          다음 챌린지 도전
-        </Link>
+          {/* 초록 버튼 위라 아이콘도 어두운 색이다 (헤더용 연두 아이콘과 파일이 다르다) */}
+          <Image src="/download-night.svg" alt="" width={20} height={20} unoptimized />
+          {saving ? '저장 중…' : '콜라주 완성'}
+        </button>
       </div>
 
       <CollageTemplateSheet

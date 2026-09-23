@@ -2,9 +2,13 @@
 
 import { loadTossPayments, type TossPaymentsWidgets } from '@tosspayments/tosspayments-sdk';
 import { useEffect, useRef, useState } from 'react';
+import {
+  MembershipIapPurchase,
+  MembershipIapUnavailable,
+} from '@/components/membership-iap-purchase';
 import { formatKrw } from '@/lib/membership-format';
-import { isNativeApp } from '@/lib/native-app';
 import type { MembershipPlan, PreparedOrder } from '@/lib/memberships';
+import { isNativeApp, useIsIapAvailable, useIsNativeApp } from '@/lib/native-app';
 
 const CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY ?? '';
 
@@ -17,6 +21,10 @@ const AGREEMENT_VARIANT = 'AGREEMENT';
  * 금액이 정해진 뒤에 마운트되므로 위젯은 한 번만 그리면 된다 (회원권을 바꾸려면 뒤로 가서
  * 다시 고르고 들어온다).
  * 승인(= 이용 기간 부여)은 `/membership/success` 에서 서버가 하고, 여기서는 주문 생성과 결제 요청만 한다.
+ *
+ * **앱에서는 토스 위젯을 그리지 않는다.** 회원권 화면이 앱에서 이미 인앱결제로 가지만,
+ * 이 주소로 직접 들어오는 경로가 남아 있어 여기서도 한 번 더 갈아끼운다 —
+ * 앱 안에서 외부 결제가 한 프레임이라도 보이면 App Review Guideline 3.1.1 위반이다.
  */
 export function MembershipCheckout({
   plan,
@@ -34,6 +42,9 @@ export function MembershipCheckout({
   /** 결제를 마친 뒤 돌아갈 화면 — 성공·실패 화면까지 그대로 들고 간다 */
   returnTo: string;
 }) {
+  const isApp = useIsNativeApp();
+  const iapAvailable = useIsIapAvailable();
+
   const [ready, setReady] = useState(false);
   /** 필수 약관에 동의했는지 — 토스 약관 위젯이 알려준다 */
   const [agreed, setAgreed] = useState(false);
@@ -49,7 +60,8 @@ export function MembershipCheckout({
   const shownError = error ?? configError;
 
   useEffect(() => {
-    if (!CLIENT_KEY) return;
+    // 앱에서는 인앱결제로 갈아끼우므로 토스 SDK 자체를 불러오지 않는다.
+    if (!CLIENT_KEY || isApp) return;
 
     let cancelled = false;
 
@@ -86,7 +98,7 @@ export function MembershipCheckout({
     return () => {
       cancelled = true;
     };
-  }, [customerKey, plan.price]);
+  }, [customerKey, plan.price, isApp]);
 
   async function pay() {
     const widgets = widgetsRef.current;
@@ -144,6 +156,12 @@ export function MembershipCheckout({
       setError(reason?.message ?? '결제가 취소되었습니다.');
       setPending(false);
     }
+  }
+
+  if (isApp) {
+    if (!iapAvailable) return <MembershipIapUnavailable reason="outdated" />;
+    if (!plan.appleProductId) return <MembershipIapUnavailable reason="unlisted" />;
+    return <MembershipIapPurchase plans={[plan]} returnTo={returnTo} />;
   }
 
   return (

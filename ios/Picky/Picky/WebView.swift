@@ -28,6 +28,14 @@ struct WebView: UIViewRepresentable {
         // 네이티브가 사진 앱에 담는다. (app/src/components/collage-maker.tsx)
         configuration.userContentController.add(context.coordinator, name: "saveImage")
 
+        // App Store 인앱결제 — 앱에서는 토스 대신 StoreKit 으로만 판다.
+        // (App Review Guideline 3.1.1 · ios/Picky/Picky/IapBridge.swift)
+        configuration.userContentController.add(context.coordinator, name: IapBridge.handlerName)
+
+        // 다시 뽑기의 보상형 광고 — AdMob 은 WebView 안에서 띄울 수 없어 SDK 가 맡는다.
+        // (ios/Picky/Picky/AdBridge.swift)
+        configuration.userContentController.add(context.coordinator, name: AdBridge.handlerName)
+
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
@@ -48,6 +56,8 @@ struct WebView: UIViewRepresentable {
     class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
         private let onLoad: () -> Void
         private var hasNotifiedLoad = false
+        private let iap = IapBridge()
+        private let ads = AdBridge()
 
         init(onLoad: @escaping () -> Void) {
             self.onLoad = onLoad
@@ -58,9 +68,23 @@ struct WebView: UIViewRepresentable {
 
         func userContentController(_ userContentController: WKUserContentController,
                                    didReceive message: WKScriptMessage) {
-            guard message.name == "saveImage", let webView = message.webView else { return }
+            guard let webView = message.webView else { return }
 
-            guard let body = message.body as? [String: Any],
+            switch message.name {
+            case "saveImage":
+                saveImage(message.body, from: webView)
+            case IapBridge.handlerName:
+                iap.handle(message.body, from: webView)
+            case AdBridge.handlerName:
+                ads.handle(message.body, from: webView)
+            default:
+                break
+            }
+        }
+
+        /// 콜라주 PNG 를 사진 앱에 담는다.
+        private func saveImage(_ body: Any, from webView: WKWebView) {
+            guard let body = body as? [String: Any],
                   let dataUrl = body["dataUrl"] as? String,
                   let image = Self.image(fromDataUrl: dataUrl) else {
                 Self.reportSaveResult(ok: false, reason: "failed", to: webView)

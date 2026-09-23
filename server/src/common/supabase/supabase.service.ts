@@ -8,15 +8,20 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
  * - `challenge-proofs` (private): 사용자가 올리는 챌린지 인증 사진.
  *   개인 사진이라 public URL 을 만들지 않고 짧은 signed URL 로만 읽는다.
  *   콜라주를 만든 뒤(또는 그만두기) 삭제되는 임시 파일이다.
+ * - `collages` (private): 완성한 콜라주. **회원권이 살아 있을 때 내려받으면** 여기에 남고,
+ *   '완료한 챌린지' 에서 다시 받을 수 있다. 인증 사진과 달리 임시 파일이 아니다.
+ *
+ * 버킷은 Supabase 콘솔에서 미리 만들어 둬야 한다 (셋 다 코드로 만들지 않는다).
  */
 export const BUCKET = {
   assets: 'picky',
   proofs: 'challenge-proofs',
+  collages: 'collages',
 } as const;
 
 export type BucketName = (typeof BUCKET)[keyof typeof BUCKET];
 
-/** 인증 사진 읽기용 signed URL 유효 시간 — 콜라주를 만드는 동안만 필요하다 */
+/** private 버킷 읽기용 signed URL 유효 시간 — 인증 사진 합성·콜라주 내려받기 모두 그 자리에서 쓴다 */
 const SIGNED_URL_TTL_SECONDS = 600;
 
 @Injectable()

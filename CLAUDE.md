@@ -20,6 +20,8 @@ pnpm + Turborepo 모노레포:
   - 생성된 Client 는 `server/src/generated/prisma` (git 제외, `pnpm db:generate`)
 - 인증: SNS 로그인(카카오/네이버/Apple) + JWT (비밀번호 없음)
 - 파일 저장: Supabase Storage (`SupabaseService`, 실제 사용 시점에 클라이언트 생성)
+  - 버킷 셋: `picky`(public, 템플릿) · `challenge-proofs`(private, 인증 사진 — 임시) ·
+    `collages`(private, 완성한 콜라주 — 등급 무관, 그룹당 한 장)
 
 ### 프론트
 
@@ -124,7 +126,55 @@ DB 에 닿지 못하면 경고만 남기고 서버는 그대로 뜬다 (DB 없�
 - app / admin → Vercel (Root Directory 를 각각 `app`, `admin`)
 - iOS → App Store (`ios/Picky`, 번들 `kr.spectrify.picky`). 자세한 절차는 [ios/README.md](ios/README.md)
   - 앱은 화면을 갖지 않고 `https://picky.spectrify.kr` 를 그대로 띄운다 — **웹을 먼저 배포**할 것
-  - 웹과 맞물린 곳이 세 군데 있다. 한쪽만 고치면 앱에서 깨진다:
-    스플래시(배경 `#121212` · 마크 120px), 콜라주 저장(`saveImage` 브리지), 결제 앱 스킴(`picky://`)
+  - 웹과 맞물린 곳이 네 군데 있다. 한쪽만 고치면 앱에서 깨진다:
+    스플래시(배경 `#121212` · 마크 120px), 콜라주 저장(`saveImage` 브리지),
+    인앱결제(`iap` 브리지), 결제 앱 스킴(`picky://`)
   - `isNativeApp()`(`app/src/lib/native-app.ts`) 은 `saveImage` 핸들러의 존재로 앱을 판별한다.
     WKWebView 에서 `<a download>` 처럼 동작하지 않는 API 를 쓸 때는 이 함수로 갈라 준다
+
+## 결제
+
+**플랫폼마다 결제 수단이 다르다. 새로 유료 기능을 붙일 때 반드시 갈라 줄 것.**
+
+|             | 결제 수단                     | 적립 경로                                              |
+| ----------- | ----------------------------- | ------------------------------------------------------ |
+| 웹 브라우저 | 토스페이먼츠 결제창           | `POST /memberships/orders` → 결제창 → `orders/confirm` |
+| iOS 앱      | App Store 인앱결제 (StoreKit) | StoreKit 결제 → `POST /memberships/orders/apple`       |
+
+- **앱 안에서 열리는 디지털 콘텐츠를 외부 결제로 팔면 심사에서 반려된다**
+  (App Review Guideline 3.1.1). 그래서 앱에서는 토스 결제창을 띄우지 않는다 —
+  `/membership` 과 `/membership/checkout` 둘 다 앱에서는 인앱결제 화면으로 갈아끼운다.
+- 브리지가 없는 예전 앱 빌드에서 **토스로 되돌리지 말 것.** 업데이트를 안내한다
+  (`MembershipIapUnavailable`). "웹에서 사세요" 같은 유도 문구도 넣으면 안 된다(안티스티어링).
+- 영수증 검증은 서버가 Apple 루트 인증서까지 직접 한다 — 앱이 보낸 상품 ID·구매 여부를
+  그대로 믿지 않는다 (`server/src/memberships/apple-iap.service.ts`).
+- **거래는 서버 적립이 끝난 뒤에 finish 한다.** 먼저 닫으면 적립 실패 시 영수증을 다시 얻을 수
+  없다. 닫지 않은 거래는 결제 화면에서 `restore` 로 꺼내 재적립한다.
+- 중복 적립은 `membership_orders.apple_transaction_id` 의 unique 제약이 막는다 —
+  같은 영수증을 여러 번 보내도 기간은 한 번만 늘어난다.
+- 회원권마다 App Store 상품 ID 를 어드민에서 연결해야 앱에서 팔린다 (`appleProductId`).
+- Android 는 아직 앱이 없다. 붙일 때는 Google Play 결제를 쓰고,
+  `MembershipStore` 에 `GOOGLE` 을 추가해 같은 구조로 간다.
+
+### 환불
+
+- **환불 창구가 스토어마다 다르다.** 웹(토스)은 우리가 취소하고, App Store 결제는 Apple 이
+  처리한다 — 우리 서버에서 취소할 방법이 아예 없다. 결제 내역·환불정책에 이 구분을 드러낸다.
+- Apple 이 환불을 승인하면 **App Store Server Notifications V2** 의 `REFUND` 알림으로 들어온다
+  (`POST /api/memberships/apple/notifications`, 로그인 가드 없음 — JWS 서명이 곧 인증).
+  이 알림을 받지 않으면 환불된 회원이 이용 기간을 그대로 쓴다.
+- 환불이 들어오면 주문을 `REFUNDED` 로 바꾸고 **그 사용자의 이용 기간을 처음부터 다시 계산한다**
+  (`rebuildPeriods`). 한 건만 손대면 안 된다 — 이용권은 `max(endsAt)` 로 판단하는데 중간 주문이
+  환불돼도 뒤 주문의 `endsAt` 이 그대로라 기간이 전혀 줄지 않는다.
+- `REFUND_REVERSED`(Apple 이 환불을 되돌린 경우)면 `PAID` 로 돌리고 다시 계산한다.
+
+### 유료 회원에게만 열리는 것
+
+- **유료 템플릿**(`sticker_templates.is_paid`) — 잠긴 카드를 누르면 구매 화면으로 보낸다
+- **지난 콜라주 다시 받기** — '완료한 챌린지' 에서 보관본을 내려받는 것
+- **콜라주 보관 자체는 유료가 아니다.** '콜라주 완성' 을 누르면 등급과 무관하게 `collages`
+  버킷에 올라간다 — 무료 사용자도 그 자리에서는 자기 콜라주를 받아 가기 때문이다.
+  나누는 지점은 **나중에 다시 받을 때** 하나뿐이다
+- **기간이 끝나면 다시 막힌다.** 판정은 한 곳에서만 한다 —
+  `MembershipsService.assertActive()`(없거나 만료면 403). 만료돼도 파일은 지우지 않으므로
+  다시 구매하면 예전 콜라주가 그대로 돌아온다. 새 유료 기능을 붙일 때도 이 함수를 쓸 것

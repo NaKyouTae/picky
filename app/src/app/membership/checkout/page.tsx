@@ -11,10 +11,13 @@ export const metadata = { title: '결제 · Picky' };
 export const dynamic = 'force-dynamic';
 
 /**
- * 결제 화면 — 회원권 화면에서 고른 플랜으로 토스 결제위젯을 띄운다.
+ * 결제 화면 — 회원권 화면에서 고른 플랜으로 결제를 진행한다.
  *
  * 금액은 쿼리로 받지 않고 planId 로 서버에서 다시 읽는다 (클라이언트가 보낸 금액을 믿지 않는다).
  * 판매가 끝났거나 없는 회원권이면 고르는 화면으로 되돌린다.
+ *
+ * 앱에서는 이 주소로 직접 들어와도 토스 결제위젯이 뜨지 않는다 —
+ * `MembershipCheckout` 이 인앱결제로 갈아끼운다 (App Review Guideline 3.1.1).
  */
 export default async function MembershipCheckoutPage({
   searchParams,

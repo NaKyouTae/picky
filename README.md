@@ -124,8 +124,10 @@ Prisma 7 부터 연결 URL 은 `schema.prisma` 가 아닌 곳에서 관리합니
 - 카카오/구글 `REDIRECT_URI` 는 로컬 `.env` 의 `localhost` 값을 쓰면 안 되고, 각 제공자 콘솔에
   등록한 Redirect URI 와 문자 단위로 같아야 합니다.
 - `SUPABASE_ANON_KEY` 는 서버 코드가 읽지 않으므로 설정하지 않아도 됩니다.
-- Storage 버킷(`picky`)과 JWT 만료 기간(`7d`)은 환경마다 다르지 않아 코드에 고정했습니다 —
-  환경변수로 넣지 않습니다.
+- Storage 버킷 이름과 JWT 만료 기간(`7d`)은 환경마다 다르지 않아 코드에 고정했습니다 —
+  환경변수로 넣지 않습니다. 버킷은 Supabase 콘솔에서 미리 만들어 두세요:
+  `picky`(public, 콜라주 템플릿) · `challenge-proofs`(private, 인증 사진) ·
+  `collages`(private, 완성한 콜라주 — 다시 받는 것만 유료 회원 전용).
 - `ADMIN_TOKEN` / `ADMIN_PASSWORD` 는 로컬과 다른 값을 쓰는 편이 안전합니다.
 
 #### 배포 절차 (콘솔에서 수동)

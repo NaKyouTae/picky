@@ -30,11 +30,24 @@ export class CreateMembershipPlanDto {
   @Max(MAX_MONTHS)
   months!: number;
 
-  @ApiProperty({ example: 3900, description: '판매 금액 (원)' })
+  @ApiProperty({ example: 3900, description: '판매 금액 (원) — 실제로 청구되는 금액' })
   @IsInt()
   @Min(0)
   @Max(MAX_PRICE)
   price!: number;
+
+  @ApiPropertyOptional({
+    example: 29900,
+    description:
+      '할인 전 정가 (원). 결제 화면에서 판매 금액 옆에 취소선으로 보여 준다. ' +
+      '청구 금액이 아니며 판매 금액보다 커야 한다. null 을 보내면 지워진다(= 할인 표시 없음).',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(MAX_PRICE)
+  listPrice?: number | null;
 
   @ApiPropertyOptional({
     example: '유료 템플릿 무제한',
@@ -45,6 +58,18 @@ export class CreateMembershipPlanDto {
   @IsString()
   @MaxLength(200)
   description?: string | null;
+
+  @ApiPropertyOptional({
+    example: 'kr.spectrify.picky.membership.1m',
+    description:
+      'App Store Connect 에 등록한 인앱결제 상품 ID. 비어 있으면 iOS 앱에서 이 회원권을 팔 수 없다 ' +
+      '(웹 토스 결제는 영향 없음). null 을 보내면 지워진다.',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  appleProductId?: string | null;
 
   @ApiPropertyOptional({ description: '판매 여부 — false 면 앱에 노출하지 않는다', default: true })
   @IsOptional()

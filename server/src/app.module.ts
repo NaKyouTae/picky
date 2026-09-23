@@ -10,6 +10,7 @@ import { AdminUsersModule } from './admin/users/admin-users.module';
 import { AuthModule } from './auth/auth.module';
 import { ChallengeGroupsModule } from './challenge-groups/challenge-groups.module';
 import { ChallengesModule } from './challenges/challenges.module';
+import { CollagesModule } from './collages/collages.module';
 import { MembershipsModule } from './memberships/memberships.module';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { SupabaseModule } from './common/supabase/supabase.module';
@@ -34,6 +35,7 @@ import { StickerTemplatesModule } from './sticker-templates/sticker-templates.mo
     AuthModule,
     ChallengeGroupsModule,
     ChallengesModule,
+    CollagesModule,
     MembershipsModule,
     StickerTemplatesModule,
   ],

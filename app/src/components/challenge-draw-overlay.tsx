@@ -63,8 +63,11 @@ function LoaderLottie() {
  *
  * 앱 셸이 translate 로 fixed 의 컨테이닝 블록이라 이 오버레이가 셸(= 모바일 화면) 전체를 덮는다.
  * 카테고리를 골라 시작할 때와 '다시 뽑기' 에서 같은 화면을 쓴다.
+ *
+ * 보이는 문구("Pick your joy_")는 브랜드 로더라 그대로 두고, 무엇을 기다리는지는
+ * 읽어 주는 문장으로만 가른다 — 다시 뽑기 전에 광고를 불러오는 동안에도 같은 화면을 쓴다.
  */
-export function ChallengeDrawOverlay() {
+export function ChallengeDrawOverlay({ label = '챌린지를 뽑고 있어요' }: { label?: string } = {}) {
   return (
     <div
       role="status"
@@ -73,7 +76,7 @@ export function ChallengeDrawOverlay() {
     >
       <LoaderLottie />
       <p className="font-mono text-sm leading-none text-night-text">Pick your joy_</p>
-      <span className="sr-only">챌린지를 뽑고 있어요</span>
+      <span className="sr-only">{label}</span>
     </div>
   );
 }

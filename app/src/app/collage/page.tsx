@@ -39,11 +39,12 @@ export default async function CollagePage({
   // 브라우저 히스토리를 따라가면 챌린지 화면을 replace 로 덮고 왔기 때문에 홈으로 빠진다.
   const backHref = group ? `/challenge?group=${encodeURIComponent(group)}` : null;
 
-  // 회원권이 살아 있으면 유료 템플릿의 잠금을 푼다.
+  // 회원권이 살아 있으면 유료 템플릿의 잠금을 풀고, 내려받은 완성본을 보관함에도 남긴다.
   return (
     <CollageMaker
       templates={templates}
       proofs={proofs}
+      groupId={group ?? null}
       hasMembership={membership.active}
       membershipHref={`/membership?returnTo=${encodeURIComponent(returnTo)}`}
       backHref={backHref}

@@ -34,3 +34,25 @@ enum AppConfig {
         #endif
     }()
 }
+
+// MARK: - AdMob
+
+extension AppConfig {
+    /// 다시 뽑기에 붙는 보상형 광고 단위 ID (ios/Picky/Picky/AdBridge.swift).
+    ///
+    /// Debug 는 구글이 공개한 테스트 단위를 쓴다 — 개발 중에 실제 단위를 띄우면
+    /// 무효 트래픽으로 잡혀 AdMob 계정이 정지될 수 있다.
+    ///
+    /// 앱 ID 는 여기가 아니라 Info.plist 의 `GADApplicationIdentifier` 다
+    /// (값은 빌드 설정 `GAD_APPLICATION_IDENTIFIER` 에서 온다). 둘은 다른 값이고,
+    /// 앱 ID 가 비어 있으면 SDK 가 실행 즉시 예외를 던진다.
+    static let rewardedAdUnitID: String = {
+        #if DEBUG
+        return "ca-app-pub-3940256099942544/1712485313"
+        #else
+        // TODO: AdMob 콘솔 → 광고 단위 → 보상형에서 만든 ID 로 교체할 것.
+        // 이 자리가 그대로면 광고가 채워지지 않아 다시 뽑기가 항상 실패한다.
+        return "ca-app-pub-0000000000000000/0000000000"
+        #endif
+    }()
+}

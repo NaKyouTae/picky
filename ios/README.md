@@ -11,7 +11,9 @@ ios/Picky/
     PickyApp.swift          앱 진입점 · 스플래시 전환
     AppConfig.swift         띄울 웹 주소 (Debug=로컬, Release=운영)
     WebView.swift           WKWebView + 브리지
-    Info.plist              URL 스킴 · 권한 문구
+    IapBridge.swift         StoreKit 인앱결제
+    AdBridge.swift          AdMob 보상형 광고 (다시 뽑기)
+    Info.plist              URL 스킴 · 권한 문구 · AdMob 앱 ID
     Launch Screen.storyboard
     Assets.xcassets         AppIcon / SplashMark / AccentColor
 ```
@@ -20,13 +22,13 @@ Xcode 16 이상에서 `ios/Picky/Picky.xcodeproj` 를 열면 됩니다. 소스 �
 `PBXFileSystemSynchronizedRootGroup`(폴더 동기화 그룹)이라 **파일을 추가할 때
 프로젝트에 등록하는 절차가 없습니다** — `Picky/` 안에 두면 자동으로 타깃에 들어갑니다.
 
-| 설정 | 값 |
-| --- | --- |
-| Bundle ID | `kr.spectrify.picky` |
-| Team | `43599V7UL7` (Spectrify) |
-| URL 스킴 | `picky://` |
-| 최소 버전 | iOS 17.0 |
-| 방향 | 세로 고정 |
+| 설정      | 값                       |
+| --------- | ------------------------ |
+| Bundle ID | `kr.spectrify.picky`     |
+| Team      | `43599V7UL7` (Spectrify) |
+| URL 스킴  | `picky://`               |
+| 최소 버전 | iOS 17.0                 |
+| 방향      | 세로 고정                |
 
 ## 개발 중 실행
 
@@ -106,15 +108,73 @@ WKWebView 는 `<a download>` 를 무시해서 웹의 저장 경로가 아무 일
 웹은 이 `saveImage` 핸들러의 존재로 "앱 안인지" 를 판별합니다(`isNativeApp()`).
 **핸들러 이름을 바꾸면 앱 판별 자체가 깨집니다.**
 
-### 3. 결제 (토스페이먼츠)
+### 3. 결제 — 앱은 인앱결제, 웹은 토스
+
+**앱에서는 토스 결제창이 뜨지 않습니다.** 회원권이 푸는 것은 앱 안에서 쓰는 디지털 콘텐츠라
+외부 결제로 팔 수 없습니다(App Review Guideline 3.1.1). 그래서 앱은 StoreKit 으로만 팝니다.
+
+결제만 네이티브가 맡고 화면·적립은 그대로 웹·서버의 몫입니다
+([IapBridge.swift](Picky/IapBridge.swift) ↔ [native-app.ts](../app/src/lib/native-app.ts)).
+
+```
+웹: 결제하기        → iap.postMessage({action:'purchase', productId, requestId})
+네이티브: StoreKit  → picky:iap-result { ok:true, transactionId, signedTransactionInfo }
+웹: 영수증 전달     → POST /api/memberships/orders/apple
+서버: 서명 검증     → 이용 기간 부여 (apple-iap.service.ts)
+웹: 적립 성공       → iap.postMessage({action:'finish', transactionId})
+```
+
+- **거래는 서버 적립이 끝난 뒤에 `finish` 합니다.** 먼저 닫으면 적립이 실패했을 때 영수증을
+  다시 얻을 수 없어 돈만 빠져나간 상태가 됩니다. 닫지 않은 거래는 StoreKit 이 들고 있으므로
+  결제 화면에 다시 들어오면 `restore` 로 꺼내 재적립할 수 있습니다.
+- 웹은 `iap` 핸들러의 존재로 인앱결제 가능 여부를 가릅니다(`isIapAvailable()`).
+  **핸들러 이름을 바꾸면 앱에서 결제가 통째로 막힙니다.**
+- 브리지가 없는 예전 빌드에서는 토스로 되돌리지 않고 업데이트를 안내합니다 —
+  앱 안에서 외부 결제가 보이면 그 자체가 반려 사유입니다.
+
+로컬에서 실제 결제 없이 시험하려면 Xcode 의 **StoreKit Configuration File**
+(File → New → File → StoreKit Configuration File)을 만들어 Scheme → Run → Options →
+StoreKit Configuration 에 지정하세요. 상품 ID 는 App Store Connect 와 같게 맞춥니다.
+
+웹(브라우저)은 그대로 토스페이먼츠를 씁니다. 앱에서는 이 경로를 타지 않지만,
+카드사 앱 복귀용 설정은 남아 있습니다.
 
 - 결제창·카드사 인증은 `window.open` 을 쓰므로 `createWebViewWith` 가 필요합니다.
   이 델리게이트가 없으면 WKWebView 가 그 요청을 조용히 버려 결제창이 아예 뜨지 않습니다.
-- 카드사 앱(ISP/페이북)에서 돌아오려면 앱 스킴이 필요합니다. 웹이 앱 안일 때만
-  `card.appScheme = 'picky://'` 를 넘깁니다 ([membership-checkout.tsx](../app/src/components/membership-checkout.tsx)).
+- 카드사 앱(ISP/페이북)에서 돌아오려면 앱 스킴이 필요합니다
+  ([membership-checkout.tsx](../app/src/components/membership-checkout.tsx)).
   `Info.plist` 의 `CFBundleURLTypes` 와 **같은 문자열이어야** 합니다.
 - `http(s)` 내비게이션은 전부 WebView 안에서 처리합니다. 결제·로그인 페이지의 링크를
   사파리로 넘기면 세션이 끊겨 "비정상적인 시도" 오류가 납니다.
+
+### 4. 광고 — 다시 뽑기는 보상형 광고를 끝까지 봐야 한다
+
+**AdMob 광고는 WebView 안에서 띄울 수 없습니다.** 앱 광고는 Google Mobile Ads SDK 로만
+서빙해야 하고, WebView 에 광고 태그를 심는 것은 무효 트래픽으로 잡혀 계정 정지 사유입니다.
+그래서 결제와 같은 모양으로 나눕니다 — 재생만 네이티브가 하고, 보상(다시 뽑기)은
+그대로 웹·서버가 줍니다 ([AdBridge.swift](Picky/AdBridge.swift) ↔
+[native-app.ts](../app/src/lib/native-app.ts)).
+
+```
+웹: 화면 진입       → ads.postMessage({action:'prepare', requestId})   (동의 + 미리 받기)
+웹: 다시 뽑기(Ad)   → 동의 모달 → ads.postMessage({action:'show', requestId})
+네이티브: AdMob     → picky:ad-result { ok:true } | { ok:false, reason:'cancelled'|'unavailable' }
+웹: ok 일 때만      → PATCH /api/challenge-groups/:id/redraw
+```
+
+- **`ok:true` 는 `userDidEarnReward` 가 불린 뒤에만 나갑니다.** 중간에 닫으면 `cancelled`
+  이고 웹은 다시 뽑기를 진행하지 않습니다 — 보상형 광고는 끝까지 본 사람에게만 보상을
+  줘야 합니다.
+- **버튼 라벨의 `(Ad)` 와 동의 모달을 빼면 안 됩니다.** 광고임을 알리고 사용자가 스스로
+  고르게 하는 것이 AdMob 보상형 정책의 조건이고, 숨기면 표시광고법상 기만적 표시·광고가
+  됩니다 ([challenge-group-screen.tsx](../app/src/components/challenge-group-screen.tsx)).
+- 동의 순서는 **UMP(동의 양식) → ATT(추적 허용) → SDK 시작** 입니다. 첫 `prepare` 에서
+  한 번만 돕니다.
+- 웹은 `ads` 핸들러의 존재로 광고 가능 여부를 가릅니다(`isRewardedAdAvailable()`).
+  브리지가 없는 개발용 브라우저에서는 광고 없이 바로 뽑습니다.
+- **ID 는 두 개이고 서로 다릅니다.** 앱 ID 는 `Info.plist` 의 `GADApplicationIdentifier`
+  (값은 빌드 설정 `GAD_APPLICATION_IDENTIFIER`), 광고 단위 ID 는
+  `AppConfig.rewardedAdUnitID` 입니다. Debug 는 둘 다 구글 테스트 값이라 그대로 돌아갑니다.
 
 ## 출시 절차
 
@@ -130,10 +190,20 @@ WKWebView 는 `<a download>` 를 무시해서 웹의 저장 경로가 아무 일
 
 - **앱 아이콘** — 지금 들어 있는 `AppIcon.png` 는 로고 마크를 night 바탕에 올린
   자동 생성본입니다. 디자인이 나오면 1024×1024 PNG(알파 없음)로 교체하세요.
-- **결제 (3.1.1)** — 회원권이 푸는 것은 앱 안에서 쓰는 디지털 콘텐츠(유료 콜라주 템플릿)입니다.
-  이런 결제는 애플이 In-App Purchase 를 요구하므로, 토스페이먼츠 결제창을 그대로 두면
-  반려될 가능성이 높습니다. IAP 를 붙이거나, iOS 앱에서는 결제 진입 자체를 감춰야 합니다.
-  (감추는 쪽을 택하면 "웹에서 구매하세요" 같은 유도 문구·링크도 넣으면 안 됩니다 — 안티스티어링)
+- **결제 (3.1.1)** — 앱에서는 인앱결제만 씁니다(위 3번). 제출 전에 아래를 모두 확인하세요.
+  1. **유료 앱 계약** — App Store Connect > 계약·세금·거래에서 '유료 앱' 계약이 **활성** 이어야
+     합니다. 세금·은행 정보가 비어 있으면 상품이 앱에서 조회되지 않습니다(= `unavailable`).
+  2. **인앱결제 상품 등록** — 회원권마다 **비갱신 구독(Non-Renewing Subscription)** 으로
+     만듭니다. 기간제이고 자동갱신이 없는 현재 판매 방식과 일치합니다.
+     (소모성/비소모성이 아닙니다 — 반복 구매로 기간을 이어 붙이기 때문입니다)
+  3. **상품 ID 연결** — 어드민 > 회원권에서 각 회원권에 상품 ID 를 적습니다.
+     비어 있으면 앱 결제 화면에 그 회원권이 보이지 않습니다.
+  4. **서버 환경변수** — `APPLE_BUNDLE_ID`, `APPLE_APP_APPLE_ID` (`server/.env.example` 참고).
+     `APPLE_APP_APPLE_ID` 가 비면 **Sandbox 결제만** 받습니다. 심사는 Sandbox 라 통과하지만
+     출시 후 실제 결제가 전부 막히므로 운영 배포 전에 반드시 채우세요.
+  5. **상품도 함께 심사 제출** — 첫 인앱결제 상품은 앱 버전과 같이 제출해야 심사됩니다.
+     앱만 제출하면 상품이 '제출 준비 완료' 로 남아 심사원이 결제를 못 합니다.
+  - 앱 안에 "웹에서 구매하세요" 같은 유도 문구·링크를 넣으면 안 됩니다(안티스티어링).
 - **로그인 (4.8)** — Sign in with Apple 을 넣었습니다(카카오·네이버와 함께 3종).
   ⚠️ **Apple Developer 설정과 서버 환경변수(`APPLE_*`)를 먼저 채운 뒤 웹을 배포하세요.**
   비어 있으면 로그인 화면에 버튼만 보이고 누르면 실패합니다. 설정 항목은 `server/.env.example` 참고.
@@ -141,3 +211,18 @@ WKWebView 는 `<a download>` 를 무시해서 웹의 저장 경로가 아무 일
 - **계정 삭제 (5.1.1(v))** — 이미 있습니다 (`app/src/components/withdraw-button.tsx`).
 - **권한 문구** — 카메라·사진 접근 문구는 `Info.plist` 의 `NS*UsageDescription` 입니다.
   기능과 다르게 적혀 있으면 반려됩니다.
+- **광고 (위 4번)** — 운영 빌드에 테스트 ID 가 남아 있으면 수익이 0 이고, 반대로 개발 중에
+  실제 ID 를 쓰면 무효 트래픽으로 계정이 정지됩니다. 제출 전에 아래를 확인하세요.
+  1. **Release 의 두 ID 교체** — 빌드 설정 `GAD_APPLICATION_IDENTIFIER`(Release)와
+     `AppConfig.rewardedAdUnitID` 의 `#else` 쪽이 아직 `0000...` 자리표시자입니다.
+  2. **SKAdNetworkItems** — `Info.plist` 에 구글 것 하나만 넣어 뒀습니다. 배포 전에
+     [구글이 공개한 전체 목록](https://developers.google.com/admob/ios/data-disclosure#skadnetwork)
+     으로 채우세요. 빠진 네트워크는 설치 성과가 안 잡혀 낙찰가가 떨어집니다.
+  3. **App Privacy (App Store Connect)** — 광고 SDK 가 쓰는 항목을 신고해야 합니다.
+     최소한 `Identifiers > Device ID`, `Usage Data`, 용도 `Third-Party Advertising`.
+     [구글의 데이터 공시 안내](https://developers.google.com/admob/ios/data-disclosure) 참고.
+  4. **개인정보 처리방침** — 제3자 광고 제공자로 Google AdMob 을 명시하고, 맞춤형 광고와
+     그 거부 방법을 적어야 합니다.
+  5. **연령 등급** — 광고가 붙으면 등급 설문의 답이 달라집니다. 다시 확인하세요.
+  6. **ATT 문구** — `NSUserTrackingUsageDescription` 이 실제 용도와 같아야 합니다.
+     ATT 를 붙였으므로 심사원이 프롬프트를 볼 수 있어야 합니다(챌린지 화면 진입 시).

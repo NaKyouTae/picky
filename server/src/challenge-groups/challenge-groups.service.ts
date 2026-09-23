@@ -38,6 +38,9 @@ const GROUP_FIELDS = {
   createdAt: true,
   updatedAt: true,
   category: { select: { id: true, name: true, emoji: true, description: true } },
+  // 보관한 콜라주가 있는지 — '완료한 챌린지' 목록이 내려받기 버튼을 붙이는 데 쓴다.
+  // 유료 회원이 내려받았을 때만 생긴다 (없으면 null).
+  collage: { select: { id: true, createdAt: true } },
   // 관계를 select 로 함께 가져와 N+1 을 만들지 않는다.
   items: {
     orderBy: { position: 'asc' as const },

@@ -52,6 +52,11 @@ export type ChallengeGroup = {
   createdAt: string;
   updatedAt: string;
   category: { id: string; name: string; emoji: string | null; description: string | null };
+  /**
+   * 보관한 콜라주 — '콜라주 완성' 을 누르면 등급과 무관하게 생긴다.
+   * 있으면 '완료한 챌린지' 에 내려받기 버튼이 붙지만, 실제로 받으려면 회원권이 살아 있어야 한다.
+   */
+  collage: { id: string; createdAt: string } | null;
   /** position 오름차순 */
   items: ChallengeGroupItem[];
 };

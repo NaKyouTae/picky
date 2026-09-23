@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { BusinessInfo } from '@/components/business-info';
+import { DottedDivider } from '@/components/dotted-divider';
 import { LogoutButton } from '@/components/logout-button';
 import { WithdrawButton } from '@/components/withdraw-button';
 import { ConsentMenuRow } from '@/components/consent-menu-row';
@@ -71,20 +72,20 @@ export default async function MyPage() {
         </span>
       </Link>
 
-      <Divider />
+      <DottedDivider />
 
       <Section title="결제">
         <MenuLink href="/membership" label="회원권 구매" />
         <MenuLink href="/mypage/payments" label="결제 내역" />
       </Section>
 
-      <Divider />
+      <DottedDivider />
 
       <Section title="나의 활동">
         <MenuLink href="/mypage/challenges" label="완료한 챌린지" />
       </Section>
 
-      <Divider />
+      <DottedDivider />
 
       <Section title="약관 및 정책">
         <MenuLink href="/mypage/terms" label="이용약관" />
@@ -104,7 +105,7 @@ export default async function MyPage() {
         />
       </Section>
 
-      <Divider />
+      <DottedDivider />
 
       {/* 디자인의 14px 텍스트 두 줄 — 세로 여백(16px)을 버튼 패딩으로 흡수해
           보이는 간격은 그대로 두고 누를 수 있는 높이만 넓힌다. */}
@@ -113,7 +114,7 @@ export default async function MyPage() {
         <WithdrawButton />
       </div>
 
-      <Divider />
+      <DottedDivider />
 
       {/* 사업자 정보 — 값은 lib/business.ts 한 곳에서만 온다 */}
       <section className="flex w-full flex-col gap-4">
@@ -149,20 +150,6 @@ function MenuLink({ href, label }: { href: string; label: string }) {
       <span className="min-w-0 flex-1 truncate text-[16px] leading-6">{label}</span>
       <ChevronIcon />
     </Link>
-  );
-}
-
-/** 디자인의 점선 구분선 — 2px 대시·2px 간격(Figma Line 9)을 그대로 재현한다 */
-function Divider() {
-  return (
-    <div
-      aria-hidden
-      className="h-px w-full shrink-0"
-      style={{
-        backgroundImage:
-          'repeating-linear-gradient(to right, var(--color-night-raised) 0 2px, transparent 2px 4px)',
-      }}
-    />
   );
 }
 

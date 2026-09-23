@@ -41,5 +41,22 @@
 	<string>챌린지 인증과 콜라주에 넣을 사진을 고르기 위해 사진에 접근합니다.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>완성한 콜라주를 사진 앱에 저장하기 위해 사용합니다.</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>관심사에 맞는 광고를 보여주기 위해 사용합니다. 허용하지 않아도 다시 뽑기는 그대로 쓸 수 있습니다.</string>
+	<!-- AdMob 앱 ID. 광고 단위 ID(AppConfig.rewardedAdUnitID)와는 다른 값이고,
+	     비어 있거나 형식이 틀리면 SDK 가 실행 즉시 예외를 던진다.
+	     값은 빌드 설정 GAD_APPLICATION_IDENTIFIER 에서 온다 (Debug 는 구글 테스트 앱 ID). -->
+	<key>GADApplicationIdentifier</key>
+	<string>$(GAD_APPLICATION_IDENTIFIER)</string>
+	<!-- SKAdNetwork 광고 기여(attribution). 여기 없는 네트워크는 설치 성과가 잡히지 않아
+	     그만큼 낙찰가가 떨어진다 — 배포 전에 구글이 공개한 전체 목록으로 채울 것.
+	     https://developers.google.com/admob/ios/data-disclosure#skadnetwork -->
+	<key>SKAdNetworkItems</key>
+	<array>
+		<dict>
+			<key>SKAdNetworkIdentifier</key>
+			<string>cstr6suwn9.skadnetwork</string>
+		</dict>
+	</array>
 </dict>
 </plist>
