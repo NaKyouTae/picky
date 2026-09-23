@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { BusinessInfo } from '@/components/business-info';
 import { LogoutButton } from '@/components/logout-button';
 import { WithdrawButton } from '@/components/withdraw-button';
 import { ConsentMenuRow } from '@/components/consent-menu-row';
@@ -114,14 +115,10 @@ export default async function MyPage() {
 
       <Divider />
 
-      {/* 사업자 정보 */}
+      {/* 사업자 정보 — 값은 lib/business.ts 한 곳에서만 온다 */}
       <section className="flex w-full flex-col gap-4">
         <p className="text-[16px] leading-none">Ⓒspectrum</p>
-        <ul className="flex flex-col gap-[10px] text-[14px] leading-none text-night-sub">
-          <li>대표자 나규태</li>
-          <li>사업자 등록 번호 244-20-02381</li>
-          <li>고객센터 spectrum.mesh@gmail.com</li>
-        </ul>
+        <BusinessInfo align="left" className="text-[14px]" />
       </section>
     </div>
   );

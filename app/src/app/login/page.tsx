@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { BusinessInfo } from '@/components/business-info';
 import { LoginButtons } from '@/components/login-buttons';
 import { Logo } from '@/components/logo';
 import { getSession } from '@/lib/auth';
@@ -11,11 +12,12 @@ const LOGIN_ERRORS: Record<string, string> = {
   invalid_state: '로그인 요청이 만료되었습니다. 다시 시도해 주세요.',
   login_failed: '로그인에 실패했습니다. 다시 시도해 주세요.',
   kakao_unavailable: '카카오 로그인을 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.',
+  naver_unavailable: '네이버 로그인을 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.',
 };
 
 /** 쿠키 값은 사용자가 바꿀 수 있으므로 아는 제공자일 때만 믿는다 */
 function readRecentProvider(value: string | undefined): OAuthProvider | null {
-  return value === 'kakao' ? value : null;
+  return value === 'kakao' || value === 'naver' ? value : null;
 }
 
 /**
@@ -75,7 +77,11 @@ export default async function LoginPage({
         )}
       </div>
 
-      <p className="text-[14px] font-medium leading-none text-night-sub">Ⓒspectrum</p>
+      {/* 전자상거래법 제10조 — 초기 화면에서 바로 확인돼야 한다 */}
+      <footer className="flex flex-col items-center gap-3">
+        <p className="text-[14px] font-medium leading-none text-night-sub">Ⓒspectrum</p>
+        <BusinessInfo />
+      </footer>
     </div>
   );
 }

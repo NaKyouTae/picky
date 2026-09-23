@@ -2,6 +2,7 @@ import { ConsentBar } from '@/components/consent-bar';
 import { PageHeader } from '@/components/page-header';
 import { getSession } from '@/lib/auth';
 import { getMyConsents } from '@/lib/consents';
+import { BUSINESS } from '@/lib/business';
 
 export const metadata = { title: '개인정보처리방침 · Picky' };
 
@@ -225,10 +226,12 @@ export default async function PrivacyPage() {
 
         <section>
           <ul className="list-disc space-y-1 pl-5">
-            <li>사업자명 : 스펙트럼</li>
-            <li>대표자 : 나규태</li>
-            <li>사업자등록번호 : 244-20-02381</li>
-            <li>고객센터 : spectrum.mesh@gmail.com</li>
+            <li>사업자명 : {BUSINESS.name}</li>
+            <li>대표자 : {BUSINESS.ceo}</li>
+            <li>사업자등록번호 : {BUSINESS.registrationNumber}</li>
+            <li>통신판매업신고번호 : {BUSINESS.mailOrderNumber}</li>
+            <li>영업소 소재지 : {BUSINESS.address}</li>
+            <li>고객센터 : {BUSINESS.email}</li>
           </ul>
         </section>
 

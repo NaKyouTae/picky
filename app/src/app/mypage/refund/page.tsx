@@ -1,8 +1,9 @@
 import { PageHeader } from '@/components/page-header';
+import { BUSINESS } from '@/lib/business';
 
 export const metadata = { title: '환불정책 · Picky' };
 
-const SUPPORT_EMAIL = 'spectrum.mesh@gmail.com';
+const SUPPORT_EMAIL = BUSINESS.email;
 
 /** 문의 메일 본문을 미리 채워 두면 필요한 정보를 빠짐없이 받을 수 있다. */
 const MAILTO = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(
@@ -139,9 +140,11 @@ export default function RefundPage() {
             )로 접수해 주세요.
           </p>
           <ul className="mt-2.5 space-y-1">
-            <li>사업자명 : 스펙트럼</li>
-            <li>대표자 : 나규태</li>
-            <li>사업자등록번호 : 244-20-02381</li>
+            <li>사업자명 : {BUSINESS.name}</li>
+            <li>대표자 : {BUSINESS.ceo}</li>
+            <li>사업자등록번호 : {BUSINESS.registrationNumber}</li>
+            <li>통신판매업신고번호 : {BUSINESS.mailOrderNumber}</li>
+            <li>영업소 소재지 : {BUSINESS.address}</li>
             <li>고객센터 : {SUPPORT_EMAIL}</li>
           </ul>
         </section>
