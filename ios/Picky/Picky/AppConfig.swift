@@ -38,18 +38,31 @@ enum AppConfig {
 // MARK: - AdMob
 
 extension AppConfig {
+    /// 구글이 공개한 보상형 테스트 단위. 우리 계정과 무관해서 아무리 봐도 실적에 잡히지 않는다.
+    private static let testRewardedAdUnitID = "ca-app-pub-3940256099942544/1712485313"
+
+    /// TestFlight(또는 개발) 빌드인지.
+    ///
+    /// TestFlight 도 Release 빌드라 `#if DEBUG` 로는 갈라지지 않는다. 앱스토어 영수증이
+    /// `sandboxReceipt` 인지로 본다 — 정식 배포본만 `receipt` 다.
+    static let isTestFlight: Bool = {
+        Bundle.main.appStoreReceiptURL?.lastPathComponent == "sandboxReceipt"
+    }()
+
     /// 다시 뽑기에 붙는 보상형 광고 단위 ID (ios/Picky/Picky/AdBridge.swift).
     ///
-    /// Debug 는 구글이 공개한 테스트 단위를 쓴다 — 개발 중에 실제 단위를 띄우면
-    /// 무효 트래픽으로 잡혀 AdMob 계정이 정지될 수 있다.
+    /// **정식 배포본에서만 실제 단위를 쓴다.** 개발 빌드는 물론 TestFlight 에서도 실제 광고를
+    /// 띄우면 그 노출·시청 완료가 전부 실적으로 집계돼 무효 트래픽이 된다 — 구글이 가장 강하게
+    /// 단속하는 항목이고 계정 정지로 이어진다.
     ///
     /// 앱 ID 는 여기가 아니라 Info.plist 의 `GADApplicationIdentifier` 다
     /// (값은 빌드 설정 `GAD_APPLICATION_IDENTIFIER` 에서 온다). 둘은 다른 값이고,
     /// 앱 ID 가 비어 있으면 SDK 가 실행 즉시 예외를 던진다.
     static let rewardedAdUnitID: String = {
         #if DEBUG
-        return "ca-app-pub-3940256099942544/1712485313"
+        return testRewardedAdUnitID
         #else
+        if isTestFlight { return testRewardedAdUnitID }
         // TODO: AdMob 콘솔 → 광고 단위 → 보상형에서 만든 ID 로 교체할 것.
         // 이 자리가 그대로면 광고가 채워지지 않아 다시 뽑기가 항상 실패한다.
         return "ca-app-pub-0000000000000000/0000000000"

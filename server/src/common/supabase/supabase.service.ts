@@ -90,6 +90,32 @@ export class SupabaseService {
     return data.signedUrl;
   }
 
+  /**
+   * 여러 파일의 signed URL 을 한 번에 발급한다 ('완료한 챌린지' 목록의 콜라주 썸네일).
+   *
+   * 목록 한 페이지가 20건이라 파일마다 따로 부르면 요청이 20번 나간다 — Storage 의
+   * 일괄 발급을 써서 한 번에 받는다. 일부가 실패해도 예외로 올리지 않는다:
+   * 썸네일 하나가 비는 것은 목록 전체를 못 여는 것보다 낫다 (빠진 경로는 Map 에 없다).
+   */
+  async createSignedUrls(bucket: BucketName, paths: string[]): Promise<Map<string, string>> {
+    const urls = new Map<string, string>();
+    if (paths.length === 0) return urls;
+
+    const { data, error } = await this.getClient()
+      .storage.from(bucket)
+      .createSignedUrls(paths, SIGNED_URL_TTL_SECONDS);
+
+    if (error || !data) {
+      this.logger.error(`signed URL 일괄 발급 실패 (${bucket}): ${error?.message}`);
+      return urls;
+    }
+
+    for (const item of data) {
+      if (item.signedUrl && item.path) urls.set(item.path, item.signedUrl);
+    }
+    return urls;
+  }
+
   async remove(paths: string[]): Promise<void> {
     await this.removeFrom(BUCKET.assets, paths);
   }

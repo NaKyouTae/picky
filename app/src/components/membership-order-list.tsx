@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import { SparkleMark } from '@/components/sparkle-mark';
 import {
   MEMBERSHIP_ORDER_STATUS_LABELS,
   MEMBERSHIP_REFUND_NOTES,
@@ -174,19 +175,5 @@ function Divider() {
           'repeating-linear-gradient(to right, var(--color-night-raised) 0 2px, transparent 2px 4px)',
       }}
     />
-  );
-}
-
-/** 빈 화면의 별 마크 (Figma 4693:4405) */
-function SparkleMark() {
-  return (
-    <svg
-      viewBox="0 0 33.6774 34.7003"
-      fill="currentColor"
-      className="h-[34.7px] w-[33.68px] shrink-0"
-      aria-hidden
-    >
-      <path d="M20.3796 7.78987L17.6256 0L14.2421 7.78987L5.03588 2.43925L9.91438 14.5568L0 18.6485L8.81278 19.9074L5.03588 30.1366L14.2421 23.2909L21.4812 34.7003L21.8746 20.773L33.6774 19.9074L23.3696 14.5568L32.4184 3.61954L20.3796 7.78987Z" />
-    </svg>
   );
 }

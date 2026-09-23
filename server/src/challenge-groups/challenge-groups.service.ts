@@ -110,6 +110,10 @@ export class ChallengeGroupsService {
    *
    * `@@index([userId, createdAt])` 가 선행 컬럼과 정렬을 그대로 커버하고, status 는 그 안에서
    * 걸러지는 잔여 조건이다 — 한 사용자의 그룹은 많아도 수십 건이라 별도 인덱스를 두지 않는다.
+   *
+   * 목록이 콜라주 썸네일을 깔아 보여 주므로 보관본의 읽기 주소(signed URL)를 함께 내려준다.
+   * **썸네일은 등급을 가리지 않는다** — 자기가 만든 그림을 보는 것까지 막을 이유가 없다.
+   * 유료로 갈리는 지점은 `GET /collages/:groupId/download`(다시 받기) 하나뿐이다.
    */
   async history(userId: string, { cursor, take = DEFAULT_HISTORY_TAKE }: ListChallengeGroupsDto) {
     const rows = await this.prisma.challengeGroup.findMany({
@@ -119,11 +123,33 @@ export class ChallengeGroupsService {
       // skip: 1 은 offset 페이징이 아니라 커서 행 자체를 제외하기 위한 것이다.
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      select: GROUP_FIELDS,
+      // 썸네일 주소를 만들려면 경로가 필요하다 — 경로 자체는 응답에서 걷어낸다.
+      select: {
+        ...GROUP_FIELDS,
+        collage: { select: { id: true, createdAt: true, imagePath: true } },
+      },
     });
 
     const hasNext = rows.length > take;
-    const items = hasNext ? rows.slice(0, take) : rows;
+    const rowsInPage = hasNext ? rows.slice(0, take) : rows;
+
+    // 파일마다 따로 부르면 한 페이지에 요청이 20번 나간다 — 한 번에 받는다.
+    const signed = await this.supabase.createSignedUrls(
+      BUCKET.collages,
+      rowsInPage.flatMap((row) => (row.collage ? [row.collage.imagePath] : [])),
+    );
+
+    const items = rowsInPage.map(({ collage, ...row }) => ({
+      ...row,
+      collage: collage
+        ? {
+            id: collage.id,
+            createdAt: collage.createdAt,
+            // 발급에 실패한 건은 null — 그 칸만 썸네일 없이 그린다.
+            imageUrl: signed.get(collage.imagePath) ?? null,
+          }
+        : null,
+    }));
 
     return { items, nextCursor: hasNext ? (items.at(-1)?.id ?? null) : null };
   }

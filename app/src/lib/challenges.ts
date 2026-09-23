@@ -55,8 +55,11 @@ export type ChallengeGroup = {
   /**
    * 보관한 콜라주 — '콜라주 완성' 을 누르면 등급과 무관하게 생긴다.
    * 있으면 '완료한 챌린지' 에 내려받기 버튼이 붙지만, 실제로 받으려면 회원권이 살아 있어야 한다.
+   *
+   * `imageUrl` 은 내역(history) 응답에만 담기는 짧은 signed URL 이다 — 목록의 썸네일용이라
+   * 등급을 가리지 않는다. 발급에 실패했거나 다른 엔드포인트면 없다.
    */
-  collage: { id: string; createdAt: string } | null;
+  collage: { id: string; createdAt: string; imageUrl?: string | null } | null;
   /** position 오름차순 */
   items: ChallengeGroupItem[];
 };

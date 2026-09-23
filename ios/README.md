@@ -29,6 +29,12 @@ Xcode 16 이상에서 `ios/Picky/Picky.xcodeproj` 를 열면 됩니다. 소스 �
 | URL 스킴  | `picky://`               |
 | 최소 버전 | iOS 17.0                 |
 | 방향      | 세로 고정                |
+| 지원 기기 | iPhone 전용              |
+
+**iPad 를 지원 기기에 넣으면 업로드가 거부됩니다**(`TARGETED_DEVICE_FAMILY`). 아이패드는
+멀티태스킹 때문에 가로 두 방향까지 모두 지원해야 하는데, 이 앱은 390px 모바일 화면을
+세로로 고정해 띄우므로 만족시킬 수가 없습니다 (App Store Connect 오류 90474).
+iPhone 전용이어도 아이패드에는 호환 모드로 그대로 설치됩니다.
 
 ## 개발 중 실행
 
@@ -174,7 +180,13 @@ StoreKit Configuration 에 지정하세요. 상품 ID 는 App Store Connect 와 
   브리지가 없는 개발용 브라우저에서는 광고 없이 바로 뽑습니다.
 - **ID 는 두 개이고 서로 다릅니다.** 앱 ID 는 `Info.plist` 의 `GADApplicationIdentifier`
   (값은 빌드 설정 `GAD_APPLICATION_IDENTIFIER`), 광고 단위 ID 는
-  `AppConfig.rewardedAdUnitID` 입니다. Debug 는 둘 다 구글 테스트 값이라 그대로 돌아갑니다.
+  `AppConfig.rewardedAdUnitID` 입니다.
+- **실제 광고는 정식 배포본에서만 나갑니다.** Debug 는 물론 **TestFlight 에서도 구글 테스트
+  단위**를 씁니다(`AppConfig.isTestFlight`) — 테스트로 본 광고가 실적으로 집계되면
+  무효 트래픽이 되어 AdMob 계정이 정지됩니다. TestFlight 는 Release 빌드라 `#if DEBUG` 로는
+  갈라지지 않아, 앱스토어 영수증이 `sandboxReceipt` 인지로 판별합니다.
+- 앱 ID 는 TestFlight 에서도 **실제 값이어야** 합니다. 테스트 단위와 짝지어도 상관없고,
+  앱 ID 자체는 식별자일 뿐이라 실적과 무관합니다.
 
 ## 출시 절차
 
@@ -226,3 +238,6 @@ StoreKit Configuration 에 지정하세요. 상품 ID 는 App Store Connect 와 
   5. **연령 등급** — 광고가 붙으면 등급 설문의 답이 달라집니다. 다시 확인하세요.
   6. **ATT 문구** — `NSUserTrackingUsageDescription` 이 실제 용도와 같아야 합니다.
      ATT 를 붙였으므로 심사원이 프롬프트를 볼 수 있어야 합니다(챌린지 화면 진입 시).
+  - 업로드 때 뜨는 `Upload Symbols Failed — dSYM for GoogleMobileAds` 경고는 무시해도
+    됩니다. AdMob 은 dSYM 없는 바이너리 프레임워크로 배포돼 크래시 심볼만 못 붙을 뿐,
+    업로드·심사에는 영향이 없습니다.
