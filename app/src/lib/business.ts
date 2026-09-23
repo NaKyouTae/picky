@@ -13,7 +13,7 @@ export const BUSINESS = {
   ceo: '나규태',
   registrationNumber: '244-20-02381',
   /** 영업소 소재지 — 전자상거래법상 필수 표시 항목 */
-  address: '경기도 남양주시 다산중앙로82번안길 166-46',
+  address: '경기도 남양주시 다산중앙로82번안길 166-46, 2층 207-S37호',
   email: 'spectrum.mesh@gmail.com',
   /** 통신판매업 신고번호 — picky 는 유료 회원권을 비대면으로 판매하므로 신고 대상이다 */
   mailOrderNumber: '2026-다산-0719',
