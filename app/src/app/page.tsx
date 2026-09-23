@@ -62,7 +62,7 @@ export default async function HomePage() {
       {/* 전자상거래법 제10조 — 사업자 정보는 초기 화면에서 바로 확인돼야 한다.
           디자인은 라인박스가 글자 높이와 같다(leading-none) — 기본 행간이 붙으면 3px 내려앉는다 */}
       <footer className="flex flex-col items-center gap-3">
-        <p className="text-[14px] font-medium leading-none text-night-sub">Ⓒspectrum</p>
+        <p className="text-[14px] font-medium leading-none text-night-sub">ⒸSpectrum</p>
         <BusinessInfo />
       </footer>
     </div>

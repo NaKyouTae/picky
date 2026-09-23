@@ -36,13 +36,22 @@ export function LogoMark({ tone = 'point', className }: { tone?: LogoTone; class
  * 마크 + 워드마크. 글자색·크기는 넘겨받은 className 으로 정하고,
  * 마크 색만 tone 으로 고른다 (SVG 에 박힌 색이라 상속되지 않는다).
  */
-export function Logo({ tone = 'point', className }: { tone?: LogoTone; className?: string }) {
+export function Logo({
+  tone = 'point',
+  wordmark = 'picky',
+  className,
+}: {
+  tone?: LogoTone;
+  /** 워드마크 표기 — 로그인 화면만 대문자로 시작하는 'Picky' 를 쓴다 */
+  wordmark?: string;
+  className?: string;
+}) {
   return (
     // 디자인은 워드마크를 Regular 로 쓴다 — 굵게 만들지 않는다.
     // 마크 크기·간격은 글자 크기에 비례한다 (메인 20px, 로그인 36px 모두 같은 비율).
     <span className={cn('flex items-center gap-[0.16em] font-mono', className)}>
       <LogoMark tone={tone} className="h-[0.96em] w-auto" />
-      picky
+      {wordmark}
     </span>
   );
 }

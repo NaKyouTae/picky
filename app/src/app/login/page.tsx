@@ -53,7 +53,7 @@ export default async function LoginPage({
     >
       {/* 로고 묶음은 버튼 위 남은 공간을 모두 차지하고 그 안에서 가운데 정렬된다 */}
       <div className="flex w-full flex-1 flex-col items-center justify-center gap-4 pt-9">
-        <Logo tone="black" className="text-[36px] text-black" />
+        <Logo tone="black" wordmark="Picky" className="text-[36px] text-black" />
         {/* 타이핑 애니메이션 — 폭이 늘면서 한 글자씩 드러나고 언더바가 커서처럼 따라간다.
             글자 수만큼 폭을 잡아 두어 타이핑 중에 문구가 좌우로 흔들리지 않는다. */}
         <p className="flex w-[14ch] text-[16px] leading-none">
@@ -81,7 +81,7 @@ export default async function LoginPage({
 
       {/* 전자상거래법 제10조 — 초기 화면에서 바로 확인돼야 한다 */}
       <footer className="flex flex-col items-center gap-3">
-        <p className="text-[14px] font-medium leading-none text-night-sub">Ⓒspectrum</p>
+        <p className="text-[14px] font-medium leading-none text-night-sub">ⒸSpectrum</p>
         <BusinessInfo />
       </footer>
     </div>
