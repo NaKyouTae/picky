@@ -20,11 +20,11 @@ export default async function HomePage() {
       // 디자인은 헤더를 프레임 맨 위에 붙인다. 노치가 있는 기기에서만
       // safe-top 만큼 내려가고, 그 외에는 디자인 그대로 0 에서 시작한다.
       //
-      // ©spectrum 아래 여백은 모든 화면과 같은 20px 이다.
+      // ©spectrum 아래 여백은 모든 화면과 같은 --page-bottom 이다 (홈 인디케이터 위 20px).
       style={{
         marginTop: 'calc(var(--safe-top) * -1)',
         paddingTop: 'var(--safe-top)',
-        paddingBottom: '20px',
+        paddingBottom: 'var(--page-bottom)',
       }}
     >
       <header className="flex h-14 items-center justify-between">

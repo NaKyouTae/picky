@@ -48,7 +48,7 @@ export default async function LoginPage({
       style={{
         marginTop: 'calc(var(--safe-top) * -1)',
         paddingTop: 'calc(var(--safe-top) + 20px)',
-        paddingBottom: '20px',
+        paddingBottom: 'var(--page-bottom)',
       }}
     >
       {/* 로고 묶음은 버튼 위 남은 공간을 모두 차지하고 그 안에서 가운데 정렬된다 */}

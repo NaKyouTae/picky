@@ -2,12 +2,7 @@ import { redirect } from 'next/navigation';
 import { PageHeader } from '@/components/page-header';
 import { getSession } from '@/lib/auth';
 import { getMyProfile } from '@/lib/profile';
-import {
-  NOT_PROVIDED,
-  formatBirthday,
-  formatGender,
-  formatPhone,
-} from '@/lib/profile-format';
+import { NOT_PROVIDED, formatBirthday, formatGender, formatPhone } from '@/lib/profile-format';
 
 export const metadata = { title: '내 정보 · Picky' };
 
@@ -49,8 +44,8 @@ export default async function ProfilePage() {
           </dl>
 
           <p className="px-5 pt-6 text-xs leading-relaxed text-ink-sub">
-            위 정보는 로그인에 사용한 카카오·네이버 계정에서 제공받은 것입니다. 내용을 바꾸려면
-            해당 계정에서 수정한 뒤 다시 로그인해 주세요.
+            위 정보는 로그인에 사용한 카카오·네이버 계정에서 제공받은 것입니다. 내용을 바꾸려면 해당
+            계정에서 수정한 뒤 다시 로그인해 주세요.
           </p>
         </>
       ) : (

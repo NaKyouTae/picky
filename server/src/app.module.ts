@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AdminAuthModule } from './admin/auth/admin-auth.module';
 import { AdminChallengeCategoriesModule } from './admin/challenge-categories/admin-challenge-categories.module';
 import { AdminChallengesModule } from './admin/challenges/admin-challenges.module';
+import { AdminInquiriesModule } from './admin/inquiries/admin-inquiries.module';
 import { AdminMembershipOrdersModule } from './admin/membership-orders/admin-membership-orders.module';
 import { AdminMembershipPlansModule } from './admin/membership-plans/admin-membership-plans.module';
 import { AdminNoticesModule } from './admin/notices/admin-notices.module';
@@ -12,6 +13,7 @@ import { AuthModule } from './auth/auth.module';
 import { ChallengeGroupsModule } from './challenge-groups/challenge-groups.module';
 import { ChallengesModule } from './challenges/challenges.module';
 import { CollagesModule } from './collages/collages.module';
+import { InquiriesModule } from './inquiries/inquiries.module';
 import { MembershipsModule } from './memberships/memberships.module';
 import { NoticesModule } from './notices/notices.module';
 import { PrismaModule } from './common/prisma/prisma.module';
@@ -31,6 +33,7 @@ import { StickerTemplatesModule } from './sticker-templates/sticker-templates.mo
     AdminUsersModule,
     AdminChallengeCategoriesModule,
     AdminChallengesModule,
+    AdminInquiriesModule,
     AdminMembershipOrdersModule,
     AdminMembershipPlansModule,
     AdminNoticesModule,
@@ -39,6 +42,7 @@ import { StickerTemplatesModule } from './sticker-templates/sticker-templates.mo
     ChallengeGroupsModule,
     ChallengesModule,
     CollagesModule,
+    InquiriesModule,
     MembershipsModule,
     NoticesModule,
     StickerTemplatesModule,

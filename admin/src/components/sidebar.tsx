@@ -20,6 +20,7 @@ const MENU_GROUPS = [
       { href: '/users', label: '사용자' },
       { href: '/user-memberships', label: '회원권' },
       { href: '/membership-orders', label: '결제 내역' },
+      { href: '/inquiries', label: '문의' },
     ],
   },
   {

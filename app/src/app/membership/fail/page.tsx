@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { MembershipFail } from '@/components/membership-fail';
-import { PageHeader } from '@/components/page-header';
+import { NightScreen } from '@/components/night-screen';
 import { getSession } from '@/lib/auth';
 import { internalPath } from '@/lib/utils';
 
@@ -21,14 +21,13 @@ export default async function MembershipFailPage({
   if (!session) redirect('/');
 
   return (
-    <div className="flex flex-1 flex-col">
-      <PageHeader title="결제 실패" variant="close" href="/membership" />
+    <NightScreen title="결제 실패" closeHref="/">
       <MembershipFail
         orderId={orderId ?? null}
         code={code ?? null}
         message={message ?? null}
         returnTo={internalPath(returnTo, '/collage')}
       />
-    </div>
+    </NightScreen>
   );
 }

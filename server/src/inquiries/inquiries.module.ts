@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { NoticesController } from './notices.controller';
-import { NoticesService } from './notices.service';
+import { InquiriesController } from './inquiries.controller';
+import { InquiriesService } from './inquiries.service';
 
 // JwtModule 은 AdminAuthModule 에서 global 로 등록되어 있어 여기서는 다시 import 하지 않는다.
 @Module({
-  controllers: [NoticesController],
-  providers: [NoticesService, JwtAuthGuard],
+  controllers: [InquiriesController],
+  providers: [InquiriesService, JwtAuthGuard],
 })
-export class NoticesModule {}
+export class InquiriesModule {}

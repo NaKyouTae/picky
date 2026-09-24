@@ -10,13 +10,16 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
  *   콜라주를 만든 뒤(또는 그만두기) 삭제되는 임시 파일이다.
  * - `collages` (private): 완성한 콜라주. **회원권이 살아 있을 때 내려받으면** 여기에 남고,
  *   '완료한 챌린지' 에서 다시 받을 수 있다. 인증 사진과 달리 임시 파일이 아니다.
+ * - `inquiries` (private): 문의에 첨부한 사진. 어드민만 보는 자료라 public URL 을 만들지 않고,
+ *   문의를 열 때 signed URL 을 발급한다. 문의가 지워질 때 함께 지운다.
  *
- * 버킷은 Supabase 콘솔에서 미리 만들어 둬야 한다 (셋 다 코드로 만들지 않는다).
+ * 버킷은 Supabase 콘솔에서 미리 만들어 둬야 한다 (넷 다 코드로 만들지 않는다).
  */
 export const BUCKET = {
   assets: 'picky',
   proofs: 'challenge-proofs',
   collages: 'collages',
+  inquiries: 'inquiries',
 } as const;
 
 export type BucketName = (typeof BUCKET)[keyof typeof BUCKET];

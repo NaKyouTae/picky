@@ -486,7 +486,7 @@ export function NoticesTable() {
               onChange={(event) => set('isPinned', event.target.checked)}
               className="size-4 rounded border-line"
             />
-            앱 목록 맨 위에 고정 (&apos;중요&apos; 배지가 붙습니다)
+            앱 목록 맨 위에 고정
           </label>
 
           {formError && <p className="text-sm text-brand-600">{formError}</p>}

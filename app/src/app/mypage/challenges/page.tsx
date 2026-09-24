@@ -32,7 +32,7 @@ export default async function ChallengeHistoryPage() {
       style={{
         marginTop: 'calc(var(--safe-top) * -1)',
         paddingTop: 'var(--safe-top)',
-        paddingBottom: '20px',
+        paddingBottom: 'var(--page-bottom)',
       }}
     >
       <header className="flex h-14 shrink-0 items-center justify-between">

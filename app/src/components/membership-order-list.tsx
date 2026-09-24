@@ -57,12 +57,12 @@ export function MembershipOrderList({ first }: { first: MembershipOrderPage }) {
   }, [cursor]);
 
   if (orders.length === 0) {
-    // 디자인의 빈 화면 — 남은 높이 가운데에 마크와 문구만 둔다 (버튼 없음).
+    // 디자인의 빈 화면 — 남은 높이 위쪽에 마크와 문구만 둔다 (버튼 없음).
     // 회원권을 사러 가는 입구는 바로 앞 화면인 마이페이지의 '회원권 구매' 다.
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 pb-9 text-center">
+      <div className="flex flex-1 flex-col items-center gap-4 py-9 text-center">
         <SparkleMark />
-        <p className="text-[16px] font-medium leading-[1.6]">
+        <p className="text-[16px] leading-[1.6]">
           Picky Pro 회원권으로
           <br />더 즐겁게 Picky를 즐겨보세요 !
         </p>
@@ -90,7 +90,7 @@ export function MembershipOrderList({ first }: { first: MembershipOrderPage }) {
                   {MEMBERSHIP_ORDER_STATUS_LABELS[order.status]}
                 </span>
               </div>
-              <p className="text-[14px] font-medium leading-none text-night-sub">
+              <p className="text-[14px] leading-none text-night-sub">
                 {formatDateTime(order.paidAt ?? order.createdAt)}
               </p>
             </div>

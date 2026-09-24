@@ -30,7 +30,7 @@ export function PolicyPage({
       style={{
         marginTop: 'calc(var(--safe-top) * -1)',
         paddingTop: 'var(--safe-top)',
-        paddingBottom: '20px',
+        paddingBottom: 'var(--page-bottom)',
       }}
     >
       {/* 약관은 화면 몇 개 분량이라 끝까지 내려가면 뒤로가기가 사라진다 — 헤더만 붙여 둔다.

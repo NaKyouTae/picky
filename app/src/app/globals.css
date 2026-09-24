@@ -142,6 +142,13 @@
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 
+  /* 화면 맨 아래 여백 — 디자인이 모든 화면에 공통으로 두는 20px 을 홈 인디케이터 '위에' 얹는다
+     (노치 기기 34 + 20 = 54px, 그 외 20px). 화면 바닥에 닿는 것은 페이지든 fixed 바·시트든
+     전부 이 값을 쓴다 — 숫자를 화면마다 적어 두면 기기별로 어긋난다.
+     앱에서 이 값이 살아 있으려면 웹뷰가 아래쪽 safe area 를 덮고 그려야 한다
+     (ios/Picky/Picky/PickyApp.swift 의 .ignoresSafeArea(.container, edges: .bottom)). */
+  --page-bottom: calc(var(--safe-bottom) + 20px);
+
   /* 하단 네비 높이 + 세이프에어리어. 스크롤 콘텐츠 하단 여백 계산에 사용 */
   --nav-height: 56px;
   --nav-space: calc(var(--nav-height) + max(var(--safe-bottom), 8px));

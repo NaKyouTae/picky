@@ -6,14 +6,25 @@ import {
   MembershipIapPurchase,
   MembershipIapUnavailable,
 } from '@/components/membership-iap-purchase';
+import { MEMBERSHIP_CTA_CLASS, MEMBERSHIP_CTA_SPACE } from '@/components/membership-cta-bar';
 import { formatKrw } from '@/lib/membership-format';
 import type { MembershipPlan, PreparedOrder } from '@/lib/memberships';
 import { isNativeApp, useIsIapAvailable, useIsNativeApp } from '@/lib/native-app';
 
 const CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY ?? '';
 
-/** 약관 위젯의 variantKey — 상점관리자에 등록된 UI 이름이다 (결제수단은 상점 기본 UI를 쓴다) */
+/** 약관 위젯의 variantKey — 상점관리자에 등록된 UI 이름이다 */
 const AGREEMENT_VARIANT = 'AGREEMENT';
+
+/**
+ * 결제수단 위젯의 variantKey.
+ *
+ * **위젯 안쪽(카드사 목록·약관)의 색은 코드로 바꿀 수 없다** — 토스가 iframe 으로 그리고,
+ * 테마는 상점관리자의 '결제위젯 > UI 설정' 에서 정한다. 디자인(4694:5823)처럼 다크로 보이려면
+ * 거기서 다크 UI 를 만들고 그 이름을 이 환경변수에 넣어야 한다.
+ * 비어 있으면 상점 기본 UI 를 쓴다 (지금까지의 동작).
+ */
+const PAYMENT_METHODS_VARIANT = process.env.NEXT_PUBLIC_TOSS_PAYMENT_VARIANT ?? '';
 
 /**
  * 결제 화면 본문 — 고른 회원권으로 토스 결제위젯을 띄운다.
@@ -74,7 +85,10 @@ export function MembershipCheckout({
         await widgets.setAmount({ currency: 'KRW', value: plan.price });
 
         const [, agreement] = await Promise.all([
-          widgets.renderPaymentMethods({ selector: '#toss-payment-methods' }),
+          widgets.renderPaymentMethods({
+            selector: '#toss-payment-methods',
+            ...(PAYMENT_METHODS_VARIANT ? { variantKey: PAYMENT_METHODS_VARIANT } : {}),
+          }),
           widgets.renderAgreement({ selector: '#toss-agreement', variantKey: AGREEMENT_VARIANT }),
         ]);
         if (cancelled) return;
@@ -159,38 +173,64 @@ export function MembershipCheckout({
   }
 
   if (isApp) {
-    if (!iapAvailable) return <MembershipIapUnavailable reason="outdated" />;
-    if (!plan.appleProductId) return <MembershipIapUnavailable reason="unlisted" />;
-    return <MembershipIapPurchase plans={[plan]} returnTo={returnTo} />;
+    // 인앱결제 화면들은 하단 고정 CTA(MembershipCtaBar)를 쓴다 — 이 화면의 아래 여백은
+    // 고정 바를 전제하지 않으므로, 본문이 바에 가리지 않도록 그만큼 자리를 비워 둔다.
+    const spacer = <div aria-hidden className="shrink-0" style={{ height: MEMBERSHIP_CTA_SPACE }} />;
+
+    if (!iapAvailable)
+      return (
+        <>
+          <MembershipIapUnavailable reason="outdated" />
+          {spacer}
+        </>
+      );
+    if (!plan.appleProductId)
+      return (
+        <>
+          <MembershipIapUnavailable reason="unlisted" />
+          {spacer}
+        </>
+      );
+    return (
+      <>
+        <MembershipIapPurchase plans={[plan]} returnTo={returnTo} />
+        {spacer}
+      </>
+    );
   }
 
+  // 화면 껍데기(다크 배경·헤더·24px 간격)는 NightScreen 이 그린다 —
+  // 여기서는 그 흐름에 얹히는 조각만 돌려준다 (회원권 고르기 화면과 같은 구성).
   return (
-    <div className="flex flex-1 flex-col">
+    <>
       {/* 토스가 그려 주는 결제수단·약관 위젯 자리 (id 는 renderXXX 의 selector 와 짝이다) */}
-      <div>
+      <div className="w-full">
         <div id="toss-payment-methods" />
         <div id="toss-agreement" />
       </div>
 
       {!ready && !shownError && (
-        <p className="px-5 py-6 text-center text-sm text-ink-sub">결제 수단을 불러오는 중…</p>
+        <p className="text-center text-[14px] leading-[1.6] text-night-sub">
+          결제 수단을 불러오는 중…
+        </p>
       )}
 
       {shownError && (
-        <p className="whitespace-pre-line px-5 pb-2 text-sm text-brand-600">{shownError}</p>
+        <p className="whitespace-pre-line text-[14px] leading-[1.6] text-picky-red">{shownError}</p>
       )}
 
-      <div className="pb-bar mt-auto px-5 pt-2">
-        <button
-          type="button"
-          onClick={() => void pay()}
-          disabled={pending || !ready || !agreed}
-          className="h-14 w-full rounded-2xl bg-brand-500 text-base font-semibold text-white active:bg-brand-600 disabled:opacity-60"
-        >
-          {pending ? '결제창을 여는 중…' : `${formatKrw(plan.price)} 결제하기`}
-        </button>
-      </div>
-    </div>
+      {/* 디자인(4694:5830)의 빈 칸 — 남은 높이를 먹어 버튼을 화면 아래로 민다 */}
+      <div aria-hidden className="min-h-0 flex-1" />
+
+      <button
+        type="button"
+        onClick={() => void pay()}
+        disabled={pending || !ready || !agreed}
+        className={MEMBERSHIP_CTA_CLASS}
+      >
+        {pending ? '결제창을 여는 중…' : `${formatKrw(plan.price)} 결제하기`}
+      </button>
+    </>
   );
 }
 

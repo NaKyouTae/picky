@@ -65,7 +65,7 @@ export function ChallengePhotoSheet({
           closing ? 'animate-sheet-out' : 'animate-sheet-in',
         )}
         // 화면들과 같은 하단 여백 20px.
-        style={{ paddingBottom: '20px' }}
+        style={{ paddingBottom: 'var(--page-bottom)' }}
       >
         {/* 손잡이 모양 — 끌어서 닫는 기능은 없고 시트라는 것만 알린다 */}
         <span className="h-[5px] w-36 rounded-full bg-night-sub" aria-hidden />

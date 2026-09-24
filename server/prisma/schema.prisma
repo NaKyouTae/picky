@@ -129,7 +129,9 @@ model User {
   challengeGroups  ChallengeGroup[]
   collages         Collage[]
   consentLogs      ConsentLog[]
+  inquiries        Inquiry[]
   membershipOrders MembershipOrder[]
+  noticeReads      NoticeRead[]
 
   // 목록/통계 조회용
   @@index([status, createdAt])
@@ -571,11 +573,12 @@ enum NoticeStatus {
 
 /// 관리자가 등록하는 공지사항. 앱에서는 마이페이지 → 공지사항에서 읽는다.
 ///
-/// 읽음 표시·푸시 발송은 하지 않는다 — 목록과 본문을 보여주는 것까지다.
+/// 누가 어떤 공지를 펼쳐 읽었는지는 `NoticeRead` 가 들고 있다 — 목록의 (New) 와
+/// 마이페이지의 점이 그 기록으로 정해진다. 푸시 발송은 다루지 않는다.
 model Notice {
   id String @id @default(uuid()) @db.Uuid
 
-  title  String       @db.VarChar(200)
+  title   String       @db.VarChar(200)
   /// 본문 — 서식 없는 글이다. 줄바꿈만 그대로 살려 보여주고 마크다운·HTML 로 해석하지 않는다
   /// (사용자가 쓰는 글이 아니라 관리자 입력이지만, 그래도 앱에서 dangerouslySetInnerHTML 을 쓰지 않는다)
   content String       @db.Text
@@ -594,11 +597,136 @@ model Notice {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  reads NoticeRead[]
+
   // 앱 목록: WHERE status AND published_at <= now() ORDER BY is_pinned desc, published_at desc
   // — 선행 컬럼부터 조건·정렬에 그대로 쓰인다
   @@index([status, isPinned, publishedAt])
+  // 신규 공지 점: WHERE status AND published_at <= now() ORDER BY published_at desc LIMIT 1.
+  // 위 인덱스는 is_pinned 가 가운데 끼어 고정/일반 두 구간을 따로 봐야 하므로 따로 둔다
+  // (마이페이지를 열 때마다 도는 쿼리다)
+  @@index([status, publishedAt])
   // 어드민 목록: WHERE status? ORDER BY created_at desc
   @@index([status, createdAt])
   @@index([createdAt])
   @@map("notices")
+}
+
+/// 공지 한 건을 펼쳐 읽은 기록.
+///
+/// 목록의 `(New)` 는 "아직 확인하지 않은 공지" 라는 뜻이라, 마지막 방문 시각 하나로는
+/// 나타낼 수 없다 — 목록을 열어만 두고 펼치지 않은 공지는 여전히 확인 전이기 때문이다.
+/// 그래서 사용자 × 공지로 한 줄씩 남긴다. 행이 있으면 읽은 것이고, 없으면 (New) 다.
+///
+/// 읽은 시각은 `createdAt` 이 겸한다 (다시 펼쳐도 갱신하지 않는다 — 처음 읽은 때가 사실이다).
+model NoticeRead {
+  id String @id @default(uuid()) @db.Uuid
+
+  userId   String @map("user_id") @db.Uuid
+  noticeId String @map("notice_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notice Notice @relation(fields: [noticeId], references: [id], onDelete: Cascade)
+
+  // 같은 공지를 두 번 기록하지 않는다. 목록에서 "내가 읽은 공지" 를 한 번에 끌어오는
+  // 조회(WHERE user_id AND notice_id IN (...))도 선행 컬럼부터 이 제약이 커버한다.
+  @@unique([userId, noticeId])
+  // FK 는 Postgres 가 자동 인덱싱하지 않는다 (공지를 지울 때 함께 지우는 경로)
+  @@index([noticeId])
+  @@map("notice_reads")
+}
+
+/// 문의 유형 — 앱의 칩 6개와 1:1 이다 (디자인 4694:5424).
+enum InquiryType {
+  /// 이용
+  USAGE
+  /// 결제
+  PAYMENT
+  /// 챌린지
+  CHALLENGE
+  /// 콜라주
+  COLLAGE
+  /// 오류
+  ERROR
+  /// 기타
+  ETC
+}
+
+/// 문의 처리 상태 — 어드민에서만 바꾼다 (앱에는 상태를 보여주지 않는다).
+enum InquiryStatus {
+  /// 접수 — 아직 아무도 손대지 않음
+  RECEIVED
+  /// 확인 중
+  IN_PROGRESS
+  /// 답변 완료 (메일로 회신함)
+  ANSWERED
+}
+
+/// 마이페이지 → 문의하기로 들어오는 고객 문의.
+///
+/// **답변은 이 표를 거치지 않는다** — 화면이 안내하는 대로 관리자가 `email` 로 직접 메일을
+/// 보내고, 여기에는 무엇을 회신했는지 `adminNote` 로만 남긴다. 앱에는 문의 내역 화면이 없다.
+///
+/// 탈퇴해도 지우지 않는다. 전자상거래법상 소비자 불만·분쟁 처리 기록은 3년 보존 대상이고,
+/// 사용자 행은 소프트 삭제(status = DELETED)라 관계도 그대로 살아 있다.
+model Inquiry {
+  id String @id @default(uuid()) @db.Uuid
+
+  userId String      @map("user_id") @db.Uuid
+  type   InquiryType
+
+  /// 문의 내용 — 서식 없는 글. 어드민에서도 줄바꿈만 살려 보여준다
+  content String @db.Text
+  /// 답변을 받을 주소. 로그인 계정 이메일이 기본값이지만 사용자가 바꿀 수 있어 따로 둔다
+  /// (SNS 이메일은 선택 동의라 아예 비어 있을 수도 있다)
+  email   String @db.VarChar(255)
+
+  status InquiryStatus @default(RECEIVED)
+
+  /// 관리자 메모 — 회신 내용·처리 경위를 적어 둔다 (사용자에게 보이지 않는다)
+  adminNote  String?   @map("admin_note") @db.Text
+  /// 답변 완료로 바꾼 시각 — ANSWERED 일 때만 채워진다
+  answeredAt DateTime? @map("answered_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  images InquiryImage[]
+
+  // 어드민 목록: WHERE status? ORDER BY created_at desc — 선행 컬럼부터 그대로 쓰인다
+  @@index([status, createdAt])
+  // 어드민 목록의 유형 필터: WHERE type ORDER BY created_at desc
+  @@index([type, createdAt])
+  // 필터 없이 최신순으로 볼 때
+  @@index([createdAt])
+  // 한 사용자가 보낸 문의 모아 보기 (어드민 사용자 화면에서 이어 붙일 수 있도록)
+  @@index([userId, createdAt])
+  @@map("inquiries")
+}
+
+/// 문의에 첨부한 사진 (private 버킷 `inquiries`, 최대 3장 — 개수 제한은 서비스에서 확인한다).
+///
+/// 인증 사진과 달리 임시 파일이 아니다 — 문의가 살아 있는 동안 함께 남는다.
+/// private 이라 public URL 을 만들지 않고, 어드민이 열 때 signed URL 을 그때그때 발급한다.
+model InquiryImage {
+  id String @id @default(uuid()) @db.Uuid
+
+  inquiryId String @map("inquiry_id") @db.Uuid
+  /// Storage 경로
+  imagePath String @map("image_path") @db.VarChar(500)
+  /// 올린 순서 (0..2) — 어드민에서 보이는 순서를 고정한다
+  displayOrder Int @map("display_order")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  inquiry Inquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+
+  // 한 문의 안에서 순서가 겹치지 않게 + 문의별 사진을 순서대로 읽는 조회를 함께 커버한다
+  @@unique([inquiryId, displayOrder])
+  @@map("inquiry_images")
 }

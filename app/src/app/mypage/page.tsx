@@ -8,6 +8,7 @@ import { ConsentMenuRow } from '@/components/consent-menu-row';
 import { getSession } from '@/lib/auth';
 import { getMyConsents } from '@/lib/consents';
 import { getMyMembership } from '@/lib/memberships';
+import { hasUnreadNotices } from '@/lib/notices';
 import { cn } from '@/lib/utils';
 
 // 세션에 따라 내용이 달라지므로 캐시하지 않는다.
@@ -25,7 +26,12 @@ export default async function MyPage() {
   if (!session) redirect('/');
 
   // 동의 상태는 여기서 한 번만 읽어 아래 행들에 내려 준다 (행마다 따로 조회하지 않도록).
-  const [membership, consents] = await Promise.all([getMyMembership(), getMyConsents()]);
+  // 확인하지 않은 공지가 있는지도 함께 받아 둔다 — 서버에서 그려야 점이 뒤늦게 깜빡이며 붙지 않는다.
+  const [membership, consents, unreadNotices] = await Promise.all([
+    getMyMembership(),
+    getMyConsents(),
+    hasUnreadNotices(),
+  ]);
 
   return (
     <div
@@ -37,7 +43,7 @@ export default async function MyPage() {
       style={{
         marginTop: 'calc(var(--safe-top) * -1)',
         paddingTop: 'var(--safe-top)',
-        paddingBottom: '20px',
+        paddingBottom: 'var(--page-bottom)',
       }}
     >
       <header className="flex h-14 shrink-0 items-center justify-between">
@@ -81,12 +87,6 @@ export default async function MyPage() {
 
       <DottedDivider />
 
-      <Section title="안내">
-        <MenuLink href="/mypage/notices" label="공지사항" />
-      </Section>
-
-      <DottedDivider />
-
       <Section title="결제">
         <MenuLink href="/membership" label="회원권 구매" />
         <MenuLink href="/mypage/payments" label="결제 내역" />
@@ -96,6 +96,14 @@ export default async function MyPage() {
 
       <Section title="나의 활동">
         <MenuLink href="/mypage/challenges" label="완료한 챌린지" />
+      </Section>
+
+      <DottedDivider />
+
+      <Section title="고객 지원">
+        <MenuLink href="/mypage/inquiry" label="문의하기" />
+        {/* 아직 펼쳐 보지 않은 공지가 하나라도 있으면 점이 붙는다 */}
+        <MenuLink href="/mypage/notices" label="공지사항" dot={unreadNotices} />
       </Section>
 
       <DottedDivider />
@@ -154,13 +162,28 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function MenuLink({ href, label }: { href: string; label: string }) {
+/**
+ * 메뉴 한 줄.
+ *
+ * `dot` 은 디자인(Figma 4694:5822)의 4px point 점 — 글자 오른쪽 위에 붙인다.
+ * 라벨을 글자 폭만큼만 차지하게 두어야 점이 줄 끝(화살표 옆)이 아니라 글자 바로 뒤에 온다.
+ */
+function MenuLink({ href, label, dot = false }: { href: string; label: string; dot?: boolean }) {
   return (
     <Link
       href={href}
       className="flex items-center justify-between gap-3 py-[5px] active:opacity-60"
     >
-      <span className="min-w-0 flex-1 truncate text-[16px] leading-6">{label}</span>
+      <span className="flex min-w-0 flex-1 items-start gap-1">
+        <span className="min-w-0 truncate text-[16px] leading-6">{label}</span>
+        {dot && (
+          <>
+            {/* 글자 상단(24px 줄 상자 안 4px 지점)에 맞춰 올린다 */}
+            <span aria-hidden className="mt-1 size-1 shrink-0 rounded-full bg-point" />
+            <span className="sr-only">새 공지 있음</span>
+          </>
+        )}
+      </span>
       <ChevronIcon />
     </Link>
   );

@@ -158,7 +158,7 @@ export function ChallengeHistoryList({
     return (
       <div className="flex flex-1 flex-col items-center gap-4 py-9 text-center">
         <SparkleMark />
-        <p className="text-[16px] font-medium leading-[1.6]">
+        <p className="text-[16px] leading-[1.6]">
           챌린지를 하나씩 완료하고
           <br />
           Picky에 나만의 순간을 채워보세요!

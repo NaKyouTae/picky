@@ -129,6 +129,11 @@ export function ChallengeGroupScreen({ group: initialGroup }: { group: Challenge
     current ||
     (finished ? group.items.at(-1) : undefined);
   const position = viewed?.position;
+  /**
+   * 마지막 칸인지 — 여기서 등록하면 더 뽑을 칸이 없어 그룹이 끝난다.
+   * 그래서 디자인(4636:77)은 이 칸에서만 버튼 이름을 '완료하기' 로 바꾼다.
+   */
+  const lastSlot = position === MAX_CHALLENGES_PER_GROUP;
   const proofUrl = position ? (proofs[position]?.url ?? null) : null;
   // 끝난 그룹에서는 어떤 동작도 할 수 없으므로 잠금에 함께 넣는다.
   const busy = pending !== null || uploading || watchingAd || finished;
@@ -439,11 +444,11 @@ export function ChallengeGroupScreen({ group: initialGroup }: { group: Challenge
       className="flex flex-1 flex-col gap-6 bg-night px-5 font-mono text-night-text"
       // 홈과 같은 방식 — 이 화면도 다크라서 레이아웃(main)이 준 safe-top 패딩까지 끌어올려 덮는다.
       // 그렇게 하지 않으면 노치 영역만 셸의 흰 배경으로 남는다.
-      // 하단 여백은 모든 화면과 같은 20px 이다.
+      // 하단 여백은 모든 화면과 같은 --page-bottom 이다 (홈 인디케이터 위 20px).
       style={{
         marginTop: 'calc(var(--safe-top) * -1)',
         paddingTop: 'var(--safe-top)',
-        paddingBottom: '20px',
+        paddingBottom: 'var(--page-bottom)',
       }}
     >
       {/* 화면을 닫아도 그룹은 끝나지 않는다 — 홈에서 다시 들어오면 이어서 할 수 있다 */}
@@ -601,7 +606,7 @@ export function ChallengeGroupScreen({ group: initialGroup }: { group: Challenge
           disabled={finished ? finishing : busy || !viewed || !viewed.proofImagePath}
           className="h-[52px] flex-1 rounded-lg bg-point text-[16px] font-medium leading-none active:bg-point/80 disabled:opacity-40"
         >
-          {finished ? '콜라주 보기' : '등록하기'}
+          {finished ? '콜라주 보기' : lastSlot ? '완료하기' : '등록하기'}
         </button>
       </div>
 
