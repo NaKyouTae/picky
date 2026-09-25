@@ -18,6 +18,7 @@ export function Modal({
   onRequestClose,
   onClosed,
   labelledBy,
+  describedBy,
   panelClassName,
   overlayClassName,
   containerClassName,
@@ -30,6 +31,8 @@ export function Modal({
   onClosed: () => void;
   /** 제목 요소의 id */
   labelledBy: string;
+  /** 본문 설명 요소의 id — 넘기면 스크린리더가 제목에 이어 읽는다 */
+  describedBy?: string;
   /** 패널 배경·글자색 교체용 (기본은 밝은 톤 — 다크 화면에서 쓸 때만 넘긴다) */
   panelClassName?: string;
   /** 뒷배경 농도 교체용 (기본 40%) */
@@ -75,6 +78,7 @@ export function Modal({
           role="dialog"
           aria-modal="true"
           aria-labelledby={labelledBy}
+          aria-describedby={describedBy}
           // 열릴 때도 같은 핸들러가 불리므로 닫히는 중에만 언마운트한다.
           onAnimationEnd={() => {
             if (closing) onClosed();

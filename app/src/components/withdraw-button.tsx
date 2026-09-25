@@ -4,6 +4,18 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Modal, type DialogState } from '@/components/modal';
 import { HOME_PATH } from '@/lib/constants';
+import { cn } from '@/lib/utils';
+
+/**
+ * 모달 안의 버튼은 전부 같은 모양이다 — 52px 높이, 8px 라운드, 16px 중간 굵기
+ * (디자인 4694:5415). 색만 NEUTRAL / POINT 로 갈린다.
+ *
+ * 초점 링은 평소 디자인을 건드리지 않고 키보드로 들어왔을 때만 보인다.
+ */
+const BUTTON_BASE =
+  'flex h-13 items-center justify-center rounded-lg px-5 text-[16px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-night-text/70 focus-visible:ring-offset-2 focus-visible:ring-offset-night-card disabled:opacity-60';
+const NEUTRAL = 'bg-night-raised text-night-text active:bg-night-raised/80';
+const POINT = 'bg-point text-night active:bg-point/80';
 
 /**
  * 우리가 끊지 못했을 때 사용자가 직접 해제할 수 있는 곳.
@@ -82,6 +94,7 @@ export function WithdrawButton() {
       <button
         type="button"
         onClick={() => setDialog('open')}
+        aria-haspopup="dialog"
         className="py-2 text-left text-[14px] leading-none text-night-sub active:text-night-text"
       >
         회원탈퇴
@@ -98,7 +111,9 @@ export function WithdrawButton() {
           setError(null);
         }}
         labelledBy="withdraw-title"
-        panelClassName="bg-night-card p-5 font-mono text-night-text"
+        describedBy="withdraw-desc"
+        // 디자인 4694:5411 — gray700 카드, 20px 안쪽 여백, 16px 라운드.
+        panelClassName="overflow-hidden bg-night-card p-5 font-mono text-night-text"
         overlayClassName="bg-black/60"
         containerClassName="px-5"
       >
@@ -108,7 +123,7 @@ export function WithdrawButton() {
               <h2 id="withdraw-title" className="text-[16px] leading-none">
                 탈퇴가 완료됐어요
               </h2>
-              <p className="text-[14px] leading-[1.6] text-night-sub">
+              <p id="withdraw-desc" className="text-[14px] leading-[1.6] text-night-sub">
                 다만 {manual.map((p) => DISCONNECT_GUIDE[p].label).join('·')} 계정에 남은 picky
                 연결은 저희가 끊지 못했어요. 아래에서 직접 해제해 주세요. 이미 해제하셨다면 그대로
                 두셔도 돼요.
@@ -122,11 +137,13 @@ export function WithdrawButton() {
                   href={DISCONNECT_GUIDE[provider].href}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex h-13 items-center justify-center gap-1 rounded-lg bg-night-raised px-5 text-[16px] font-medium active:bg-night-raised/80"
+                  // 경로 안내("보안설정 > 연결된 서비스 관리")가 한 줄에는 안 들어간다 —
+                  // 이름 아래로 내리고 높이는 52px 를 최소값으로만 잡는다.
+                  className={cn(BUTTON_BASE, NEUTRAL, 'h-auto min-h-13 flex-col gap-1 py-2.5')}
                 >
                   {DISCONNECT_GUIDE[provider].label} 연결 해제
-                  <span className="text-[12px] font-normal text-night-sub">
-                    ({DISCONNECT_GUIDE[provider].hint})
+                  <span className="text-[12px] font-normal leading-[1.4] text-night-sub">
+                    {DISCONNECT_GUIDE[provider].hint}
                   </span>
                 </a>
               ))}
@@ -135,7 +152,8 @@ export function WithdrawButton() {
             <button
               type="button"
               onClick={goHome}
-              className="mt-2.5 h-13 w-full rounded-lg bg-point text-[16px] font-medium text-night active:bg-point/80"
+              autoFocus
+              className={cn(BUTTON_BASE, POINT, 'mt-2.5 w-full')}
             >
               확인
             </button>
@@ -146,19 +164,31 @@ export function WithdrawButton() {
               <h2 id="withdraw-title" className="text-[16px] leading-none">
                 정말 탈퇴하시겠어요?
               </h2>
-              <p className="text-[14px] leading-[1.6] text-night-sub">
+              <p id="withdraw-desc" className="text-[14px] leading-[1.6] text-night-sub">
                 쌓아온 챌린지 기록이 모두 사라져요.
                 <br />
                 삭제된 기록은 다시 복구할 수 없어요.
               </p>
             </div>
 
+            {/* 실패하면 팝업이 열린 채로 남는다 — 이유를 버튼 바로 위에서 보여준다 */}
+            {error && (
+              <p
+                role="alert"
+                className="mt-2.5 text-center text-[12px] leading-[1.6] text-[#ff6b66] [word-break:keep-all]"
+              >
+                {error}
+              </p>
+            )}
+
             <div className="mt-6 flex gap-2.5">
               <button
                 type="button"
                 onClick={() => setDialog('closing')}
                 disabled={pending}
-                className="h-13 flex-1 rounded-lg bg-night-raised text-[16px] font-medium text-night-text active:bg-night-raised/80 disabled:opacity-60"
+                // 되돌릴 수 없는 쪽이 아니라 취소에 처음 초점을 준다.
+                autoFocus
+                className={cn(BUTTON_BASE, NEUTRAL, 'flex-1')}
               >
                 취소
               </button>
@@ -166,18 +196,19 @@ export function WithdrawButton() {
                 type="button"
                 onClick={() => void withdraw()}
                 disabled={pending}
-                className="h-13 flex-1 rounded-lg bg-point text-[16px] font-medium text-night active:bg-point/80 disabled:opacity-60"
+                aria-busy={pending}
+                className={cn(BUTTON_BASE, POINT, 'flex-1 gap-2')}
               >
-                {pending ? '처리 중…' : '탈퇴하기'}
+                {/* 글자를 바꾸지 않아 버튼 폭이 흔들리지 않는다 */}
+                {pending && (
+                  <span
+                    aria-hidden
+                    className="size-4 shrink-0 animate-spin rounded-full border-2 border-night/25 border-t-night"
+                  />
+                )}
+                탈퇴하기
               </button>
             </div>
-
-            {/* 실패하면 팝업이 열린 채로 남는다 — 이유를 여기서 보여준다 */}
-            {error && (
-              <p role="alert" className="mt-4 text-center text-sm text-[#ff8a85]">
-                {error}
-              </p>
-            )}
           </>
         )}
       </Modal>
