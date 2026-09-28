@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      시스템 스플래시. 배경 #121212 과 마크는 웹의 native-splash.tsx · iOS 의 SplashView 와
+      같은 그림이어야 전환할 때 튀지 않는다. 세 곳을 함께 고칠 것.
+    -->
+    <style name="Theme.Picky.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/night</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon</item>
+        <item name="postSplashScreenTheme">@style/Theme.Picky</item>
+    </style>
+
+    <style name="Theme.Picky" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">@color/night</item>
+        <!-- edge-to-edge 라 시스템 바는 투명하다. 상태바 자리는 MainActivity 가 night 로 덮는다. -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+</resources>

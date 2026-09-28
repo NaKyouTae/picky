@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 적응형 아이콘은 108dp 중 가운데 72dp 만 확실히 보인다. 마크를 그 안에 넣는다. -->
+    <item
+        android:drawable="@drawable/splash_mark"
+        android:gravity="center"
+        android:width="60dp"
+        android:height="60dp" />
+</layer-list>

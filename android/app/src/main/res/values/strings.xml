@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Picky</string>
+    <string name="exit_confirm">한 번 더 누르면 종료됩니다</string>
+</resources>

@@ -1,0 +1,13 @@
+*.iml
+.gradle/
+local.properties
+.idea/
+.DS_Store
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+# 서명 키 — 절대 커밋하지 않는다
+*.jks
+*.keystore
+keystore.properties

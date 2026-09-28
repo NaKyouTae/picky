@@ -1,0 +1,21 @@
+# 버전은 이 저장소에서 쓰는 Android Studio(Quail 4 / 2026.1)가 번들한 것에 맞춘다.
+# AGP·Kotlin 을 임의로 올리면 IDE 가 쓰는 Kotlin 컴파일러와 어긋나 동기화가 깨진다.
+[versions]
+agp = "9.4.1"
+coreKtx = "1.19.1"
+appcompat = "1.8.0"
+activity = "1.13.0"
+# WebView 에 문서 로드 전 스크립트를 주입하려면 androidx.webkit 이 필요하다
+# (Phase 3 의 브리지 shim 이 이걸 쓴다).
+webkit = "1.17.1"
+splashscreen = "1.2.0"
+
+[libraries]
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
+androidx-activity-ktx = { group = "androidx.activity", name = "activity-ktx", version.ref = "activity" }
+androidx-webkit = { group = "androidx.webkit", name = "webkit", version.ref = "webkit" }
+androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "splashscreen" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }

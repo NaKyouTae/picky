@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- globals.css 의 color-night 토큰. 스플래시·상태바 자리·WebView 바탕이 모두 이 값이다. -->
+    <color name="night">#121212</color>
+</resources>
