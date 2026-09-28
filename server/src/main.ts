@@ -4,6 +4,7 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { startMemoryLogger } from './common/memory-logger';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
@@ -39,6 +40,9 @@ async function bootstrap() {
 
   await app.listen(port, '0.0.0.0');
   Logger.log(`🚀 Picky server ready on http://localhost:${port}/api`, 'Bootstrap');
+
+  // 구독 메모리를 얼마로 잡아야 하는지 판단할 근거를 남긴다 — common/memory-logger.ts 참고
+  startMemoryLogger();
 }
 
 void bootstrap();

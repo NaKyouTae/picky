@@ -27,6 +27,10 @@ RUN pnpm install --frozen-lockfile --prod
 FROM base AS runner
 ENV NODE_ENV=production
 ENV PORT=21000
+# V8 은 cgroup 메모리 한도를 제대로 못 읽어 힙을 과하게 잡는다 — 클라우드타입 할당량
+# (512MB) 에 맞춰 직접 상한을 준다. 네이티브/버퍼 몫으로 ~190MB 를 남긴 값이다.
+# 실사용량은 /api/health/memory 와 5분 주기 Memory 로그로 확인한다.
+ENV NODE_OPTIONS="--max-old-space-size=320"
 
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=prod-deps /app/server/node_modules ./server/node_modules
