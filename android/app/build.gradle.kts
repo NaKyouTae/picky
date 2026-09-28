@@ -1,3 +1,5 @@
+import java.io.File
+
 plugins {
     // AGP 9 부터 Kotlin 지원이 내장이다. org.jetbrains.kotlin.android 를 따로 붙이면
     // "no longer required" 로 빌드가 멈춘다.
@@ -56,6 +58,67 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+}
+
+/**
+ * 기기의 `localhost:<port>` 를 맥의 같은 포트로 되돌린다 (`adb reverse`).
+ *
+ * **기기가 재연결될 때마다 풀린다.** 안 걸린 채로 앱을 띄우면 로컬 개발 서버에 못 닿아
+ * 까만 화면만 뜨고 에러도 나지 않는다 — 원인을 찾기 어려운 실패라 빌드에 붙여 둔다.
+ * Android Studio 의 Run 도 assembleDebug 를 거치므로 같이 걸린다.
+ *
+ * ⚠️ 빌드 스크립트에서는 `java` · `android` 가 플러그인 확장 이름으로 선점돼 있어
+ * `java.io.File` / `android.sdkDirectory` 같은 표기가 엉뚱한 곳으로 붙는다.
+ * 그래서 파일 위쪽의 `import` 로 끌어오고, SDK 경로는 local.properties 에서 읽는다.
+ */
+
+// 로컬 개발 서버를 볼 때만 필요하다. 운영 URL 을 보는 빌드에는 걸지 않는다.
+val localPort = Regex("""^https?://(?:localhost|127\.0\.0\.1):(\d+)""")
+    .find(debugWebUrl)?.groupValues?.get(1)?.toIntOrNull()
+
+localPort?.let { port ->
+    // Android Studio 가 local.properties 에 항상 써 주는 값이 가장 믿을 만하다.
+    val sdkDir = providers.environmentVariable("ANDROID_HOME")
+        .orElse(providers.environmentVariable("ANDROID_SDK_ROOT"))
+        .orNull
+        ?: rootProject.file("local.properties")
+            .takeIf { it.exists() }
+            ?.readLines()
+            ?.firstOrNull { it.startsWith("sdk.dir=") }
+            ?.substringAfter("=")
+        ?: return@let
+
+    val adb = File(sdkDir, "platform-tools/adb").absolutePath
+
+    val adbReverse = tasks.register("adbReverse") {
+        description = "기기의 localhost:$port 를 맥의 개발 서버로 되돌린다"
+        // 매번 돌아야 한다 — 기기 연결 상태는 Gradle 이 알 수 없다.
+        outputs.upToDateWhen { false }
+        doLast {
+            if (!File(adb).exists()) {
+                logger.lifecycle("adb 를 찾지 못해 포트 되돌리기를 건너뛴다: $adb")
+                return@doLast
+            }
+            val devices = ProcessBuilder(adb, "devices")
+                .redirectErrorStream(true).start()
+                .inputStream.bufferedReader().readLines()
+                .drop(1)
+                .mapNotNull { line -> line.substringBefore('\t').trim().takeIf { it.isNotEmpty() } }
+
+            if (devices.isEmpty()) {
+                logger.lifecycle("연결된 기기가 없어 포트 되돌리기를 건너뛴다")
+                return@doLast
+            }
+            devices.forEach { serial ->
+                ProcessBuilder(adb, "-s", serial, "reverse", "tcp:$port", "tcp:$port")
+                    .redirectErrorStream(true).start().waitFor()
+                logger.lifecycle("adb reverse tcp:$port → $serial")
+            }
+        }
+    }
+
+    tasks.matching { it.name == "assembleDebug" || it.name == "installDebug" }
+        .configureEach { finalizedBy(adbReverse) }
 }
 
 dependencies {
