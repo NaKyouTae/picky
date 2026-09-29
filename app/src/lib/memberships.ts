@@ -29,17 +29,6 @@ export type MembershipPlan = {
   googleProductId: string | null;
 };
 
-/**
- * 이 플랫폼의 앱에서 이 회원권을 팔 수 있는 상품 ID.
- *
- * 스토어마다 상품을 따로 등록하므로 값이 다를 수 있다. 없으면 그 플랫폼에서는 팔 수 없다.
- */
-export function storeProductId(
-  plan: MembershipPlan,
-  platform: 'ios' | 'android',
-): string | null {
-  return platform === 'android' ? plan.googleProductId : plan.appleProductId;
-}
 
 export type MembershipOrderStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
 

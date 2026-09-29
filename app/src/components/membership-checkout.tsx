@@ -7,8 +7,8 @@ import {
   MembershipIapUnavailable,
 } from '@/components/membership-iap-purchase';
 import { MEMBERSHIP_CTA_CLASS, MEMBERSHIP_CTA_SPACE } from '@/components/membership-cta-bar';
-import { formatKrw } from '@/lib/membership-format';
-import { storeProductId, type MembershipPlan, type PreparedOrder } from '@/lib/memberships';
+import { formatKrw, storeProductId } from '@/lib/membership-format';
+import type { MembershipPlan, PreparedOrder } from '@/lib/memberships';
 import { isNativeApp, useIsIapAvailable, useNativePlatform } from '@/lib/native-app';
 
 const CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY ?? '';

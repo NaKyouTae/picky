@@ -5,6 +5,20 @@
  * 클라이언트 번들에 들어가도 되는 것만 여기에 둔다 (타입은 저쪽에서 `import type` 으로 가져온다).
  */
 import type { MembershipOrderStatus, MembershipPlan, MembershipStore } from '@/lib/memberships';
+import type { NativePlatform } from '@/lib/native-app';
+
+/**
+ * 이 플랫폼의 앱에서 이 회원권을 팔 수 있는 상품 ID.
+ *
+ * 스토어마다 상품을 따로 등록하므로 값이 다를 수 있다. 없으면 그 플랫폼에서는 팔 수 없다.
+ *
+ * ⚠️ **서버 전용인 `lib/memberships.ts` 에 두면 안 된다.** 클라이언트 컴포넌트가 이 함수를
+ * 값으로 import 하는 순간 그 파일이 끌려오고, 거기서 `next/headers` 까지 클라이언트 번들에
+ * 들어가 빌드가 깨진다 (타입만 가져올 때는 `import type` 이 지워 주므로 드러나지 않는다).
+ */
+export function storeProductId(plan: MembershipPlan, platform: NativePlatform): string | null {
+  return platform === 'android' ? plan.googleProductId : plan.appleProductId;
+}
 
 export const MEMBERSHIP_ORDER_STATUS_LABELS: Record<MembershipOrderStatus, string> = {
   PENDING: '결제 대기',

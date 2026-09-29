@@ -6,8 +6,8 @@ import { DottedDivider } from '@/components/dotted-divider';
 import { MembershipBenefits } from '@/components/membership-benefits';
 import { MembershipCtaBar, MEMBERSHIP_CTA_CLASS } from '@/components/membership-cta-bar';
 import { MembershipPlanPicker } from '@/components/membership-plan-picker';
-import { formatDate, formatKrw } from '@/lib/membership-format';
-import { storeProductId, type MembershipOrder, type MembershipPlan } from '@/lib/memberships';
+import { formatDate, formatKrw, storeProductId } from '@/lib/membership-format';
+import type { MembershipOrder, MembershipPlan } from '@/lib/memberships';
 import type { IapReceipt, NativePlatform } from '@/lib/native-app';
 import {
   fetchIapProducts,

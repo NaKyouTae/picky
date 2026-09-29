@@ -10,7 +10,8 @@ import {
 import { MembershipBenefits } from '@/components/membership-benefits';
 import { MembershipCtaBar, MEMBERSHIP_CTA_CLASS } from '@/components/membership-cta-bar';
 import { MembershipPlanPicker } from '@/components/membership-plan-picker';
-import { storeProductId, type MembershipPlan } from '@/lib/memberships';
+import { storeProductId } from '@/lib/membership-format';
+import type { MembershipPlan } from '@/lib/memberships';
 import { useIsIapAvailable, useNativePlatform } from '@/lib/native-app';
 
 /**
