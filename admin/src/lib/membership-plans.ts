@@ -15,6 +15,11 @@ export type AdminMembershipPlan = {
    * 비어 있으면 iOS 앱에서 이 회원권을 팔 수 없다 (웹 토스 결제는 영향 없음).
    */
   appleProductId: string | null;
+  /**
+   * Google Play Console 에 등록한 인앱 상품 ID (소모성).
+   * 비어 있으면 안드로이드 앱에서 이 회원권을 팔 수 없다 (웹 토스 결제는 영향 없음).
+   */
+  googleProductId: string | null;
   /** false 면 앱 결제 화면에 노출되지 않는다 */
   isActive: boolean;
   displayOrder: number;

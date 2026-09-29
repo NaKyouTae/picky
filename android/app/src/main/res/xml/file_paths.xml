@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- 촬영본을 담는 자리. 캐시라 시스템이 알아서 회수한다. (FileChooser.kt) -->
+    <cache-path name="camera" path="camera/" />
+</paths>

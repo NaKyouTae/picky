@@ -12,6 +12,7 @@ const PLAN_SELECT = {
   listPrice: true,
   description: true,
   appleProductId: true,
+  googleProductId: true,
   isActive: true,
   displayOrder: true,
   createdAt: true,

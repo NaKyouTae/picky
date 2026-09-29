@@ -11,12 +11,14 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import type { Prisma } from '../generated/prisma/client';
 import { MembershipOrderStatus, MembershipStore } from '../generated/prisma/enums';
 import { AppleIapError, AppleIapService } from './apple-iap.service';
+import { GoogleIapError, GoogleIapService } from './google-iap.service';
 import type { AppleNotificationDto } from './dto/apple-notification.dto';
 import type { ConfirmMembershipOrderDto } from './dto/confirm-membership-order.dto';
 import type { CreateMembershipOrderDto } from './dto/create-membership-order.dto';
 import type { FailMembershipOrderDto } from './dto/fail-membership-order.dto';
 import type { ListMyOrdersDto } from './dto/list-my-orders.dto';
 import type { RedeemApplePurchaseDto } from './dto/redeem-apple-purchase.dto';
+import type { RedeemGooglePurchaseDto } from './dto/redeem-google-purchase.dto';
 import { TossPaymentError, TossPaymentsService } from './toss-payments.service';
 
 const DEFAULT_TAKE = 20;
@@ -45,6 +47,7 @@ const PLAN_SELECT = {
   listPrice: true,
   description: true,
   appleProductId: true,
+  googleProductId: true,
 } as const;
 
 const ORDER_SELECT = {
@@ -77,6 +80,7 @@ export class MembershipsService {
     private readonly prisma: PrismaService,
     private readonly toss: TossPaymentsService,
     private readonly apple: AppleIapService,
+    private readonly google: GoogleIapService,
   ) {}
 
   /** 판매 중인 회원권 — 앱 구매 화면 */
@@ -482,11 +486,144 @@ export class MembershipsService {
    * 한 Apple 계정으로 산 영수증을 다른 picky 계정에 넣으려는 경우를 막는다 —
    * 기기를 빌려 로그인만 바꾸면 같은 영수증을 다시 보낼 수 있다.
    */
+  /**
+   * Google Play 인앱결제 적립 — 구매 토큰을 검증하고 이용 기간을 부여한다.
+   *
+   * Apple 쪽({@link redeemApplePurchase})과 같은 모양이지만 두 가지가 다르다.
+   *
+   * - **검증이 서버 조회다.** 앱이 보내는 것은 토큰뿐이고 상품·금액·상태는 구글에게서 받는다.
+   * - **적립 뒤에 소비(consume)한다.** Play 는 3일 안에 확인하지 않은 구매를 자동 환불하고,
+   *   소모성 상품은 소비해야 같은 상품을 다시 살 수 있다. 앱에 맡기면 그 사이 앱이 꺼졌을 때
+   *   돈만 돌아가므로 서버가 직접 한다.
+   *
+   * 같은 토큰을 다시 보내도 기간이 두 번 늘지 않는다 (멱등).
+   */
+  async redeemGooglePurchase(userId: string, dto: RedeemGooglePurchaseDto) {
+    // 검증보다 먼저 본다 — 앱의 재시도·복원 경로에서 대부분 여기서 끝난다.
+    const already = await this.findGoogleRedeemed(dto.purchaseToken, userId);
+    if (already) {
+      // 앞선 요청이 적립까지는 마쳤는데 소비에서 끊겼을 수 있다. 다시 시도해 둔다.
+      await this.consumeQuietly(dto.productId, dto.purchaseToken);
+      return already;
+    }
+
+    let purchase;
+    try {
+      purchase = await this.google.verifyPurchase(dto.productId, dto.purchaseToken);
+    } catch (error) {
+      if (error instanceof GoogleIapError) throw new BadRequestException(error.message);
+      throw error;
+    }
+
+    // 라이선스 테스터의 시험 구매는 실제 매출이 아니다. 받아 주되 구분할 수 있게 남긴다
+    // (운영에서 갑자기 늘면 확인이 필요하다 — Apple 의 Sandbox 와 같은 자리).
+    if (purchase.isTest) {
+      this.logger.warn(
+        `시험 구매로 이용 기간을 부여합니다: productId=${purchase.productId} userId=${userId}`,
+      );
+    }
+
+    // 판매를 중단한(isActive: false) 플랜이어도 막지 않는다 —
+    // Play 가 이미 결제를 끝냈으므로 기간은 줘야 한다.
+    const plan = await this.prisma.membershipPlan.findUnique({
+      where: { googleProductId: purchase.productId },
+      select: { id: true, name: true, months: true, price: true },
+    });
+    if (!plan) {
+      // 돈은 빠져나갔는데 줄 회원권이 없는 상태다. 상품 ID 매핑이 빠진 것이므로
+      // 로그로 남겨 두고 수동으로 처리해야 한다. (소비하지 않는다 — 환불될 수 있게 둔다)
+      this.logger.error(
+        `매핑되지 않은 Play 상품: productId=${purchase.productId} userId=${userId}`,
+      );
+      throw new BadRequestException('알 수 없는 상품입니다. 고객센터로 문의해 주세요.');
+    }
+
+    // 실제 청구액은 Play 가격이라 DB 가격과 다를 수 있다 —
+    // 구글이 알려 주면 그 값을, 아니면 플랜 가격을 내역에 적는다.
+    const amount = purchase.amount ?? plan.price;
+
+    let order;
+    try {
+      // 기간 계산과 저장을 한 트랜잭션에 묶는다 (confirmOrder 와 같은 이유).
+      order = await this.prisma.$transaction(async (tx) => {
+        const now = new Date();
+        const current = await tx.membershipOrder.aggregate({
+          where: { userId, status: MembershipOrderStatus.PAID, endsAt: { gt: now } },
+          _max: { endsAt: true },
+        });
+
+        // 남은 기간이 있으면 그 뒤에 이어 붙인다 (연장 구매).
+        const startsAt = current._max.endsAt ?? now;
+
+        return tx.membershipOrder.create({
+          data: {
+            // 주문번호는 Play 주문번호로 만든다. 시험 구매에는 없으므로 토큰 앞자리로 대신한다.
+            orderCode: `picky-and-${purchase.orderId ?? purchase.purchaseToken.slice(0, 32)}`,
+            userId,
+            planId: plan.id,
+            planName: plan.name,
+            months: plan.months,
+            amount,
+            status: MembershipOrderStatus.PAID,
+            store: MembershipStore.GOOGLE,
+            googlePurchaseToken: purchase.purchaseToken,
+            googleOrderId: purchase.orderId,
+            // 내역 화면의 결제수단 자리 — 토스는 '카드' 처럼 한글 표기를 준다.
+            method: 'Google Play',
+            paidAt: purchase.purchasedAt,
+            startsAt,
+            endsAt: addMonths(startsAt, plan.months),
+          },
+          select: ORDER_SELECT,
+        });
+      });
+    } catch (error) {
+      // 같은 토큰이 거의 동시에 두 번 오면 unique 제약에 걸린다.
+      // 먼저 들어간 주문이 있으면 그것이 정답이다.
+      const saved = await this.findGoogleRedeemed(dto.purchaseToken, userId);
+      if (saved) return saved;
+      throw error;
+    }
+
+    // **기간을 준 다음에** 소비한다. 먼저 소비하면 적립이 실패했을 때 구매를 다시 꺼낼 수 없다.
+    await this.consumeQuietly(purchase.productId, purchase.purchaseToken);
+    return order;
+  }
+
+  /**
+   * 구매를 소비한다. 실패해도 적립은 되돌리지 않는다 — 돈도 받았고 기간도 줬으므로
+   * 소비만 다시 하면 되는 상태다. 다음 적립 요청에서 재시도한다.
+   */
+  private async consumeQuietly(productId: string, purchaseToken: string) {
+    try {
+      await this.google.consume(productId, purchaseToken);
+    } catch {
+      // 사유는 GoogleIapService 가 이미 error 로 남긴다.
+    }
+  }
+
   private async findRedeemed(appleTransactionId: string, userId: string) {
     const order = await this.prisma.membershipOrder.findUnique({
       where: { appleTransactionId },
       select: { id: true, userId: true },
     });
+    return this.ownedOrder(order, userId);
+  }
+
+  /** 이미 적립된 Play 구매인지. 있으면 그 주문이 정답이다 (멱등). */
+  private async findGoogleRedeemed(googlePurchaseToken: string, userId: string) {
+    const order = await this.prisma.membershipOrder.findUnique({
+      where: { googlePurchaseToken },
+      select: { id: true, userId: true },
+    });
+    return this.ownedOrder(order, userId);
+  }
+
+  /**
+   * 이미 적립된 주문을 돌려준다 — **다른 계정의 것이면 거절한다.**
+   * 영수증·토큰을 남의 계정으로 옮겨 기간을 얻는 것을 막는다.
+   */
+  private async ownedOrder(order: { id: string; userId: string } | null, userId: string) {
     if (!order) return null;
     if (order.userId !== userId) {
       throw new BadRequestException('이미 다른 계정에 사용된 결제입니다.');

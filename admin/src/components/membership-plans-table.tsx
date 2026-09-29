@@ -21,6 +21,7 @@ type FormValues = {
   listPrice: string;
   description: string;
   appleProductId: string;
+  googleProductId: string;
   displayOrder: string;
   isActive: boolean;
 };
@@ -32,6 +33,7 @@ const EMPTY: FormValues = {
   listPrice: '',
   description: '',
   appleProductId: '',
+  googleProductId: '',
   displayOrder: '0',
   isActive: true,
 };
@@ -68,6 +70,7 @@ export function MembershipPlansTable({ plans }: { plans: AdminMembershipPlan[] }
             listPrice: target.listPrice === null ? '' : String(target.listPrice),
             description: target.description ?? '',
             appleProductId: target.appleProductId ?? '',
+            googleProductId: target.googleProductId ?? '',
             displayOrder: String(target.displayOrder),
             isActive: target.isActive,
           },
@@ -92,6 +95,7 @@ export function MembershipPlansTable({ plans }: { plans: AdminMembershipPlan[] }
       listPrice: values.listPrice.trim() === '' ? null : Number(values.listPrice),
       description: values.description.trim() || null,
       appleProductId: values.appleProductId.trim() || null,
+      googleProductId: values.googleProductId.trim() || null,
       displayOrder: Number(values.displayOrder) || 0,
       isActive: values.isActive,
     };
@@ -189,6 +193,9 @@ export function MembershipPlansTable({ plans }: { plans: AdminMembershipPlan[] }
               )}
               <span>{monthlyPrice(plan.price, plan.months)}</span>
               {!plan.appleProductId && <span className="text-amber-700">iOS 미연결</span>}
+              {!plan.googleProductId && (
+                <span className="text-amber-700">Android 미연결</span>
+              )}
               <span className="ml-auto">{formatDateTime(plan.updatedAt)}</span>
             </div>
           </button>
@@ -219,6 +226,9 @@ export function MembershipPlansTable({ plans }: { plans: AdminMembershipPlan[] }
               </th>
               <th scope="col" className="px-4 py-3 font-medium">
                 App Store 상품 ID
+              </th>
+              <th scope="col" className="px-4 py-3 font-medium">
+                Play 상품 ID
               </th>
               <th scope="col" className="px-4 py-3 font-medium">
                 판매
@@ -255,6 +265,9 @@ export function MembershipPlansTable({ plans }: { plans: AdminMembershipPlan[] }
                 <td className="px-4 py-3 text-ink-sub">{plan.description ?? '—'}</td>
                 <td className="px-4 py-3 text-ink-sub">
                   {plan.appleProductId ?? <span className="text-amber-700">미연결</span>}
+                </td>
+                <td className="px-4 py-3 text-ink-sub">
+                  {plan.googleProductId ?? <span className="text-amber-700">미연결</span>}
                 </td>
                 <td className="px-4 py-3">
                   <span
@@ -394,6 +407,25 @@ export function MembershipPlansTable({ plans }: { plans: AdminMembershipPlan[] }
             <p className="mt-1 text-xs text-ink-sub">
               App Store Connect 에 등록한 인앱결제 상품 ID 와 똑같아야 합니다. 비워 두면 iOS
               앱에서는 이 회원권이 보이지 않습니다 (웹 결제는 영향 없음).
+            </p>
+          </div>
+
+          <div>
+            <label htmlFor="googleProductId" className={LABEL}>
+              Google Play 상품 ID
+            </label>
+            <input
+              id="googleProductId"
+              value={values.googleProductId}
+              onChange={(event) => set('googleProductId', event.target.value)}
+              maxLength={120}
+              placeholder="picky_membership_1m"
+              className={FIELD}
+            />
+            <p className="mt-1 text-xs text-ink-sub">
+              Play Console 에 등록한 <b>소모성</b> 인앱 상품 ID 와 똑같아야 합니다. 비워 두면
+              안드로이드 앱에서는 이 회원권이 보이지 않습니다 (웹 결제는 영향 없음). App Store
+              상품 ID 와 같은 문자열을 써도 되지만 같을 필요는 없습니다.
             </p>
           </div>
 

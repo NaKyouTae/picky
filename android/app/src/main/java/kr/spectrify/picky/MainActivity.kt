@@ -14,6 +14,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.updateLayoutParams
+import androidx.lifecycle.lifecycleScope
 
 /**
  * 앱 진입점. 화면은 WebView 하나뿐이라 레이아웃 XML 이 없다.
@@ -24,6 +25,9 @@ import androidx.core.view.updateLayoutParams
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: PickyWebView
+    private lateinit var fileChooser: FileChooser
+    private lateinit var imageSaver: ImageSaver
+    private lateinit var iapBridge: IapBridge
 
     /** 웹이 첫 화면을 그리기 시작했는지. */
     private var isWebViewLoaded = false
@@ -56,7 +60,22 @@ class MainActivity : AppCompatActivity() {
         // 상태바 자리는 night 로 채우므로 아이콘은 밝은 쪽이어야 보인다.
         WindowInsetsControllerCompat(window, window.decorView).isAppearanceLightStatusBars = false
 
-        webView = PickyWebView(this).apply { configure() }
+        // registerForActivityResult 는 Activity 가 STARTED 되기 전에 끝나야 한다.
+        fileChooser = FileChooser(this)
+        imageSaver = ImageSaver(this)
+
+        webView = PickyWebView(this).apply {
+            configure()
+            openFileChooser = fileChooser::open
+        }
+
+        iapBridge = IapBridge(
+            activity = this,
+            scope = lifecycleScope,
+            // 답은 WebView 가 웹 이벤트로 돌려준다 (iOS 와 같은 이름).
+            reply = { detail -> webView.dispatchEvent(IapBridge.RESULT_EVENT, detail.toString()) },
+        )
+        webView.installBridge(NativeBridge(webView, imageSaver, iapBridge))
 
         // 컨테이너의 night 가 상태바 자리에 드러난다.
         val container = FrameLayout(this).apply {
@@ -98,8 +117,11 @@ class MainActivity : AppCompatActivity() {
             val bars = insets.getInsets(
                 WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout(),
             )
+            val density = resources.displayMetrics.density
             webView.updateLayoutParams<FrameLayout.LayoutParams> { topMargin = bars.top }
-            webView.applySafeBottom(bars.bottom / resources.displayMetrics.density)
+            // 위는 0 이다 — WebView 를 이미 상태바 아래로 내렸는데 웹이 컷아웃 높이를 또 보고
+            // 피하면 여백이 두 배가 된다 (PickyWebView.applySafeArea).
+            webView.applySafeArea(topCssPx = 0f, bottomCssPx = bars.bottom / density)
             insets
         }
     }

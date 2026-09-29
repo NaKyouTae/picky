@@ -20,6 +20,7 @@ import { CreateMembershipOrderDto } from './dto/create-membership-order.dto';
 import { FailMembershipOrderDto } from './dto/fail-membership-order.dto';
 import { ListMyOrdersDto } from './dto/list-my-orders.dto';
 import { RedeemApplePurchaseDto } from './dto/redeem-apple-purchase.dto';
+import { RedeemGooglePurchaseDto } from './dto/redeem-google-purchase.dto';
 import { MembershipsService } from './memberships.service';
 
 @ApiTags('memberships')
@@ -79,6 +80,20 @@ export class MembershipsController {
   })
   redeemApplePurchase(@Req() req: AuthedRequest, @Body() dto: RedeemApplePurchaseDto) {
     return this.memberships.redeemApplePurchase(req.user!.sub, dto);
+  }
+
+  @Post('orders/google')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Google Play 인앱결제 적립 — 구매 토큰을 검증하고 이용 기간을 부여한다',
+    description:
+      '안드로이드 앱 전용. 결제는 Play Billing 이 이미 끝냈고 서버는 구매 토큰을 Play Developer API 로 ' +
+      '확인해 주문을 PAID 로 만든다. 적립 뒤 서버가 구매를 소비한다(3일 안에 확인하지 않으면 자동 환불). ' +
+      '같은 토큰을 다시 보내도 기간이 두 번 늘지 않는다 (멱등).',
+  })
+  redeemGooglePurchase(@Req() req: AuthedRequest, @Body() dto: RedeemGooglePurchaseDto) {
+    return this.memberships.redeemGooglePurchase(req.user!.sub, dto);
   }
 
   /**

@@ -11,12 +11,15 @@ import android.util.Log
 import android.webkit.ConsoleMessage
 import android.webkit.CookieManager
 import android.webkit.PermissionRequest
+import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import java.net.URISyntaxException
 
 /**
@@ -34,7 +37,14 @@ class PickyWebView(context: Context) : WebView(context) {
     /** 첫 픽셀이 그려진 시점 — MainActivity 가 스플래시를 걷는 데 쓴다. */
     var onFirstPaint: (() -> Unit)? = null
 
+    /**
+     * `<input type="file">` 을 여는 쪽. MainActivity 가 꽂아 준다 — 파일 선택은
+     * Activity 의 결과 런처가 필요해서 WebView 혼자 처리할 수 없다 (FileChooser.kt).
+     */
+    var openFileChooser: ((WebChromeClient.FileChooserParams, ValueCallback<Array<Uri>>) -> Unit)? = null
+
     /** 시스템 바 여백을 웹에 넘기기 위해 마지막으로 받은 값 (CSS px). */
+    private var safeTopCss: Float = 0f
     private var safeBottomCss: Float = 0f
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -78,17 +88,74 @@ class PickyWebView(context: Context) : WebView(context) {
     }
 
     /**
-     * 하단 시스템 바(제스처 바) 높이를 웹의 CSS 변수로 넘긴다.
+     * 네이티브의 답을 웹에 돌려준다 — 이벤트 이름은 iOS 와 **같아야** 한다.
      *
-     * **안드로이드 WebView 의 `env(safe-area-inset-*)` 는 디스플레이 컷아웃만 반영하고
-     * 시스템 바는 반영하지 않는다.** 웹(`app/src/globals.css`)은 `--safe-bottom` 으로
-     * 하단 CTA·바텀시트·네비게이션 여백을 전부 계산하므로, 그 값을 네이티브가 직접 넣어 준다.
-     * documentElement 의 인라인 스타일이라 스타일시트의 `env(...)` 선언을 덮어쓴다.
+     * 본문 JSON 을 그대로 스크립트에 끼워 넣으면 따옴표·줄바꿈에서 깨진다.
+     * 문자열 리터럴로 감싸 `JSON.parse` 를 거치게 한다.
      *
-     * 전체 페이지 로드가 일어나면 인라인 스타일이 날아가므로 그릴 때마다 다시 넣는다.
+     * 브리지는 메인 스레드가 아닌 곳에서도 부르므로 항상 post 로 넘긴다.
      */
-    fun applySafeBottom(cssPx: Float) {
-        safeBottomCss = cssPx
+    fun dispatchEvent(event: String, detailJson: String) {
+        val quoted = org.json.JSONObject.quote(detailJson)
+        post {
+            evaluateJavascript(
+                "window.dispatchEvent(new CustomEvent('$event',{detail:JSON.parse($quoted)}))",
+                null,
+            )
+        }
+    }
+
+    /**
+     * 웹 ↔ 네이티브 브리지를 심는다 (NativeBridge.kt).
+     *
+     * shim 은 **문서의 스크립트보다 먼저** 돌아야 한다 — 웹은 `isNativeApp()` 을 한 번만 읽고
+     * 나중에 붙은 브리지를 다시 보지 않는다. `addDocumentStartJavaScript` 가 그 자리를 보장한다.
+     *
+     * 허용 오리진을 우리 주소로 좁힌다. 웹이 열어 주는 남의 페이지(카카오 로그인, 카드사 인증)에
+     * 네이티브 기능을 노출할 이유가 없다.
+     */
+    fun installBridge(bridge: NativeBridge) {
+        addJavascriptInterface(bridge, NativeBridge.INTERFACE_NAME)
+
+        val origins = mutableSetOf("https://picky.spectrify.kr", "https://*.spectrify.kr")
+        if (BuildConfig.DEBUG) {
+            // 로컬 개발 서버도 허용한다. 오리진은 스킴·호스트·포트까지다.
+            val dev = Uri.parse(AppConfig.webUrl)
+            origins += "${dev.scheme}://${dev.host}:${dev.port}"
+        }
+
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            WebViewCompat.addDocumentStartJavaScript(this, NativeBridge.SHIM, origins)
+        } else {
+            // 아주 오래된 WebView 폴백. 문서 스크립트보다 늦을 수 있어 isNativeApp() 판별이
+            // 한 박자 밀릴 수 있다 — 그때는 웹이 앱을 브라우저로 볼 수 있다.
+            Log.w(TAG, "DOCUMENT_START_SCRIPT 미지원 — onPageStarted 로 대체한다")
+            fallbackShim = true
+        }
+    }
+
+    /** DOCUMENT_START_SCRIPT 를 못 쓰는 WebView 에서만 true. */
+    private var fallbackShim = false
+
+    /**
+     * 웹이 피해야 할 위아래 여백을 CSS 변수(`--safe-top` / `--safe-bottom`)로 넘긴다.
+     *
+     * **`env(safe-area-inset-*)` 를 그대로 두면 안 된다.** 안드로이드 WebView 에서 이 값은
+     * 두 가지로 어긋난다.
+     *
+     * - **아래**: 시스템 바(제스처 바)를 아예 반영하지 않는다 — 웹이 0 으로 보고 하단 CTA 를
+     *   제스처 바에 겹쳐 그린다.
+     * - **위**: 크로미움이 WebView 위치가 아니라 **창의 디스플레이 컷아웃**에서 계산한다.
+     *   상태바 자리는 네이티브가 이미 덮고 WebView 를 그 아래로 내렸는데(MainActivity),
+     *   웹은 컷아웃 높이를 또 보고 한 번 더 피해서 여백이 두 배가 된다.
+     *
+     * 그래서 두 값 모두 네이티브가 정해 준다. 위는 보통 0 이다.
+     *
+     * 전체 페이지 로드가 일어나면 주입한 스타일이 날아가므로 그릴 때마다 다시 넣는다.
+     */
+    fun applySafeArea(topCssPx: Float, bottomCssPx: Float) {
+        safeTopCss = topCssPx
+        safeBottomCss = bottomCssPx
         injectSafeArea()
     }
 
@@ -102,7 +169,7 @@ class PickyWebView(context: Context) : WebView(context) {
               var id = 'picky-native-safe-area';
               var el = document.getElementById(id);
               if (!el) { el = document.createElement('style'); el.id = id; document.head.appendChild(el); }
-              el.textContent = ':root{--safe-bottom:${safeBottomCss}px !important;}';
+              el.textContent = ':root{--safe-top:${safeTopCss}px !important;--safe-bottom:${safeBottomCss}px !important;}';
             })();
         """.trimIndent()
         evaluateJavascript(js, null)
@@ -141,6 +208,10 @@ class PickyWebView(context: Context) : WebView(context) {
         }
 
         /** 첫 픽셀이 그려진 시점. onPageFinished 는 JS 번들·데이터까지 끝나야 해서 훨씬 늦다. */
+        override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
+            if (fallbackShim) evaluateJavascript(NativeBridge.SHIM, null)
+        }
+
         override fun onPageCommitVisible(view: WebView, url: String) {
             injectSafeArea()
             onFirstPaint?.invoke()
@@ -197,9 +268,29 @@ class PickyWebView(context: Context) : WebView(context) {
             return true
         }
 
-        /** 챌린지 인증 사진은 `<input type="file" capture="environment">` 로 찍는다. */
+        /**
+         * 웹의 `<input type="file">` — 구현하지 않으면 **눌러도 아무 일이 일어나지 않는다.**
+         * (FileChooser.kt)
+         */
+        override fun onShowFileChooser(
+            webView: WebView,
+            filePathCallback: ValueCallback<Array<Uri>>,
+            fileChooserParams: FileChooserParams,
+        ): Boolean {
+            val open = openFileChooser ?: return false
+            open(fileChooserParams, filePathCallback)
+            return true
+        }
+
+        /**
+         * 웹이 카메라·마이크를 **직접** 잡으려 할 때(`getUserMedia`) 불린다.
+         *
+         * 이 앱의 웹은 `getUserMedia` 를 쓰지 않는다 — 인증 사진은
+         * `<input type="file" capture="environment">` 로 카메라 앱에 맡긴다(위 onShowFileChooser).
+         * 그래서 거부가 맞다. 열어 두면 매니페스트에 CAMERA 권한을 선언해야 하고,
+         * 그 순간부터 쓰지도 않는 권한을 사용자에게 묻게 된다.
+         */
         override fun onPermissionRequest(request: PermissionRequest) {
-            // TODO(Phase 2): CAMERA 런타임 권한을 먼저 받고 그 결과로 grant/deny 한다.
             request.deny()
         }
     }

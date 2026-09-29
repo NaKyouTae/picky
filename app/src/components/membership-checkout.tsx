@@ -8,8 +8,8 @@ import {
 } from '@/components/membership-iap-purchase';
 import { MEMBERSHIP_CTA_CLASS, MEMBERSHIP_CTA_SPACE } from '@/components/membership-cta-bar';
 import { formatKrw } from '@/lib/membership-format';
-import type { MembershipPlan, PreparedOrder } from '@/lib/memberships';
-import { isNativeApp, useIsIapAvailable, useIsNativeApp } from '@/lib/native-app';
+import { storeProductId, type MembershipPlan, type PreparedOrder } from '@/lib/memberships';
+import { isNativeApp, useIsIapAvailable, useNativePlatform } from '@/lib/native-app';
 
 const CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY ?? '';
 
@@ -53,7 +53,7 @@ export function MembershipCheckout({
   /** 결제를 마친 뒤 돌아갈 화면 — 성공·실패 화면까지 그대로 들고 간다 */
   returnTo: string;
 }) {
-  const isApp = useIsNativeApp();
+  const platform = useNativePlatform();
   const iapAvailable = useIsIapAvailable();
 
   const [ready, setReady] = useState(false);
@@ -72,7 +72,7 @@ export function MembershipCheckout({
 
   useEffect(() => {
     // 앱에서는 인앱결제로 갈아끼우므로 토스 SDK 자체를 불러오지 않는다.
-    if (!CLIENT_KEY || isApp) return;
+    if (!CLIENT_KEY || platform) return;
 
     let cancelled = false;
 
@@ -112,7 +112,7 @@ export function MembershipCheckout({
     return () => {
       cancelled = true;
     };
-  }, [customerKey, plan.price, isApp]);
+  }, [customerKey, plan.price, platform]);
 
   async function pay() {
     const widgets = widgetsRef.current;
@@ -172,7 +172,7 @@ export function MembershipCheckout({
     }
   }
 
-  if (isApp) {
+  if (platform) {
     // 인앱결제 화면들은 하단 고정 CTA(MembershipCtaBar)를 쓴다 — 이 화면의 아래 여백은
     // 고정 바를 전제하지 않으므로, 본문이 바에 가리지 않도록 그만큼 자리를 비워 둔다.
     const spacer = <div aria-hidden className="shrink-0" style={{ height: MEMBERSHIP_CTA_SPACE }} />;
@@ -180,11 +180,13 @@ export function MembershipCheckout({
     if (!iapAvailable)
       return (
         <>
-          <MembershipIapUnavailable reason="outdated" />
+          <MembershipIapUnavailable
+            reason={platform === 'android' ? 'preparing' : 'outdated'}
+          />
           {spacer}
         </>
       );
-    if (!plan.appleProductId)
+    if (!storeProductId(plan, platform))
       return (
         <>
           <MembershipIapUnavailable reason="unlisted" />
@@ -193,7 +195,7 @@ export function MembershipCheckout({
       );
     return (
       <>
-        <MembershipIapPurchase plans={[plan]} returnTo={returnTo} />
+        <MembershipIapPurchase plans={[plan]} platform={platform} returnTo={returnTo} />
         {spacer}
       </>
     );

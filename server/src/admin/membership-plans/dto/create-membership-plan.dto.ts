@@ -71,6 +71,18 @@ export class CreateMembershipPlanDto {
   @MaxLength(120)
   appleProductId?: string | null;
 
+  @ApiPropertyOptional({
+    example: 'picky_membership_1m',
+    description:
+      'Google Play Console 에 등록한 소모성 인앱 상품 ID. 비어 있으면 안드로이드 앱에서 이 회원권을 ' +
+      '팔 수 없다 (웹 토스 결제는 영향 없음). App Store 상품 ID 와 같을 필요는 없다. null 을 보내면 지워진다.',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  googleProductId?: string | null;
+
   @ApiPropertyOptional({ description: '판매 여부 — false 면 앱에 노출하지 않는다', default: true })
   @IsOptional()
   @IsBoolean()

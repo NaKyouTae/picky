@@ -10,8 +10,8 @@ import {
 import { MembershipBenefits } from '@/components/membership-benefits';
 import { MembershipCtaBar, MEMBERSHIP_CTA_CLASS } from '@/components/membership-cta-bar';
 import { MembershipPlanPicker } from '@/components/membership-plan-picker';
-import type { MembershipPlan } from '@/lib/memberships';
-import { useIsIapAvailable, useIsNativeApp } from '@/lib/native-app';
+import { storeProductId, type MembershipPlan } from '@/lib/memberships';
+import { useIsIapAvailable, useNativePlatform } from '@/lib/native-app';
 
 /**
  * 회원권 고르기 — 화면 껍데기(헤더·로고)는 `MembershipScreen` 이 그리고,
@@ -33,7 +33,7 @@ export function MembershipPurchase({
   /** 결제를 마친 뒤 돌아갈 화면 */
   returnTo: string;
 }) {
-  const isApp = useIsNativeApp();
+  const platform = useNativePlatform();
   const iapAvailable = useIsIapAvailable();
 
   // 기본 선택은 첫 번째(= 노출 순서가 가장 앞선) 회원권
@@ -41,15 +41,20 @@ export function MembershipPurchase({
 
   const selected = plans.find((plan) => plan.id === selectedId) ?? null;
 
-  if (isApp) {
-    // 인앱결제 브리지가 없는 예전 앱 빌드 — 토스로 되돌리지 않고 업데이트를 안내한다.
-    if (!iapAvailable) return <MembershipIapUnavailable reason="outdated" />;
+  if (platform) {
+    // 인앱결제 브리지가 없는 빌드 — 토스로 되돌리지 않는다. 앱 안에서 외부 결제를 노출하는
+    // 것 자체가 위반이다 (App Review 3.1.1 · Play 4.1 · 안티스티어링).
+    if (!iapAvailable) {
+      // 안드로이드는 브리지를 붙이기 전 단계일 수 있어 '준비 중' 으로 알린다.
+      // iOS 는 이미 배포된 기능이라 예전 빌드를 쓰고 있다는 뜻이다.
+      return <MembershipIapUnavailable reason={platform === 'android' ? 'preparing' : 'outdated'} />;
+    }
 
-    // 상품 ID 가 연결된 회원권만 앱에서 팔 수 있다.
-    const sellable = plans.filter((plan) => plan.appleProductId);
+    // 그 스토어의 상품 ID 가 연결된 회원권만 앱에서 팔 수 있다.
+    const sellable = plans.filter((plan) => storeProductId(plan, platform));
     if (sellable.length === 0) return <MembershipIapUnavailable reason="unlisted" />;
 
-    return <MembershipIapPurchase plans={sellable} returnTo={returnTo} />;
+    return <MembershipIapPurchase plans={sellable} platform={platform} returnTo={returnTo} />;
   }
 
   if (plans.length === 0) {

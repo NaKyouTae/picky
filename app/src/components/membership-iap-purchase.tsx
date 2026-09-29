@@ -7,8 +7,8 @@ import { MembershipBenefits } from '@/components/membership-benefits';
 import { MembershipCtaBar, MEMBERSHIP_CTA_CLASS } from '@/components/membership-cta-bar';
 import { MembershipPlanPicker } from '@/components/membership-plan-picker';
 import { formatDate, formatKrw } from '@/lib/membership-format';
-import type { MembershipOrder, MembershipPlan } from '@/lib/memberships';
-import type { IapReceipt } from '@/lib/native-app';
+import { storeProductId, type MembershipOrder, type MembershipPlan } from '@/lib/memberships';
+import type { IapReceipt, NativePlatform } from '@/lib/native-app';
 import {
   fetchIapProducts,
   finishIapTransaction,
@@ -27,7 +27,7 @@ const FAILURE_MESSAGES: Record<IapFailureReason, string> = {
 };
 
 type Phase =
-  /** App Store 에서 가격을 읽는 중 */
+  /** 스토어에서 가격을 읽는 중 */
   | { name: 'loading' }
   | { name: 'ready' }
   /** StoreKit 결제창이 떠 있는 중 */
@@ -37,21 +37,26 @@ type Phase =
   | { name: 'done'; order: MembershipOrder };
 
 /**
- * iOS 앱의 회원권 구매 — App Store 인앱결제.
+ * 앱의 회원권 구매 — 스토어 인앱결제.
  *
- * 앱 안에서 열리는 유료 템플릿은 외부 결제로 팔 수 없어(App Review Guideline 3.1.1)
- * 앱에서는 토스 결제창을 띄우지 않고 StoreKit 으로만 판다.
+ * 앱 안에서 열리는 유료 템플릿은 외부 결제로 팔 수 없어(App Review Guideline 3.1.1 ·
+ * Play 결제 정책 4.1) 앱에서는 토스 결제창을 띄우지 않고 스토어 결제로만 판다.
  *
- * 흐름이 웹과 반대다 — **StoreKit 이 결제를 먼저 끝내고, 그 영수증으로 서버가 주문을 만든다.**
+ * 흐름이 웹과 반대다 — **스토어가 결제를 먼저 끝내고, 그 영수증으로 서버가 주문을 만든다.**
  * 그래서 적립에 실패해도 돈은 이미 빠져나간 상태다. 그 경우 영수증을 들고 다시 시도할 수
  * 있도록 버튼을 남겨 둔다 (서버는 같은 영수증을 여러 번 받아도 한 번만 적립한다).
+ *
+ * **두 스토어가 이 화면을 함께 쓴다.** 다른 것은 세 가지뿐이라 분기해 둔다 —
+ * 상품 ID 필드, 적립 엔드포인트, 그리고 거래를 닫는 주체(iOS 는 앱, 안드로이드는 서버).
  */
 export function MembershipIapPurchase({
   plans,
+  platform,
   returnTo,
 }: {
-  /** App Store 상품 ID 가 있는 회원권만 넘어온다 */
+  /** 이 플랫폼의 상품 ID 가 있는 회원권만 넘어온다 */
   plans: MembershipPlan[];
+  platform: NativePlatform;
   returnTo: string;
 }) {
   const [selectedId, setSelectedId] = useState(plans[0]?.id ?? null);
@@ -70,7 +75,7 @@ export function MembershipIapPurchase({
 
     void (async () => {
       const productIds = plans
-        .map((plan) => plan.appleProductId)
+        .map((plan) => storeProductId(plan, platform))
         .filter((id): id is string => Boolean(id));
 
       const [products, receipts] = await Promise.all([
@@ -82,7 +87,8 @@ export function MembershipIapPurchase({
       const byProductId = new Map(products.map((product) => [product.productId, product]));
       const labels: Record<string, string> = {};
       for (const plan of plans) {
-        const product = plan.appleProductId ? byProductId.get(plan.appleProductId) : undefined;
+        const id = storeProductId(plan, platform);
+        const product = id ? byProductId.get(id) : undefined;
         if (product) labels[plan.id] = product.displayPrice;
       }
 
@@ -103,7 +109,7 @@ export function MembershipIapPurchase({
     return () => {
       cancelled = true;
     };
-  }, [plans]);
+  }, [plans, platform]);
 
   /**
    * 서버에 영수증을 넘겨 이용 기간을 받는다.
@@ -114,15 +120,29 @@ export function MembershipIapPurchase({
     setPhase({ name: 'redeeming' });
 
     try {
-      const res = await fetch('/api/memberships/orders/apple', {
+      // 스토어마다 서버가 확인하는 방식이 다르다 — Apple 은 서명 영수증을 검증하고,
+      // Play 는 구매 토큰으로 구글에 직접 조회한다(그래서 상품 ID 가 함께 필요하다).
+      const [endpoint, body] =
+        platform === 'android'
+          ? ([
+              '/api/memberships/orders/google',
+              { productId: receipt.productId, purchaseToken: receipt.transactionId },
+            ] as const)
+          : ([
+              '/api/memberships/orders/apple',
+              { signedTransactionInfo: receipt.signedTransactionInfo },
+            ] as const);
+
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ signedTransactionInfo: receipt.signedTransactionInfo }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error(await readError(res));
 
       const order = (await res.json()) as MembershipOrder;
-      await finishIapTransaction(receipt.transactionId);
+      // 안드로이드는 서버가 적립 직후에 소비(consume)하므로 앱이 닫을 것이 없다.
+      if (platform === 'ios') await finishIapTransaction(receipt.transactionId);
 
       setPendingReceipt(null);
       setPhase({ name: 'done', order });
@@ -135,12 +155,13 @@ export function MembershipIapPurchase({
   }
 
   async function buy() {
-    if (!selected?.appleProductId) return;
+    const productId = selected ? storeProductId(selected, platform) : null;
+    if (!productId) return;
 
     setError(null);
     setPhase({ name: 'purchasing' });
 
-    const result = await purchaseIapProduct(selected.appleProductId);
+    const result = await purchaseIapProduct(productId);
     if (!result.ok) {
       setError(FAILURE_MESSAGES[result.reason]);
       setPhase({ name: 'ready' });
@@ -150,6 +171,8 @@ export function MembershipIapPurchase({
     await redeem({
       transactionId: result.transactionId,
       signedTransactionInfo: result.signedTransactionInfo,
+      // 안드로이드 적립에 필요하다. 네이티브가 알려 주지 않으면 우리가 고른 값을 쓴다.
+      productId: result.productId ?? productId,
     });
   }
 
@@ -206,7 +229,7 @@ export function MembershipIapPurchase({
         <button
           type="button"
           onClick={() => void (pendingReceipt ? redeem(pendingReceipt) : buy())}
-          disabled={busy || phase.name === 'loading' || !selected?.appleProductId}
+          disabled={busy || phase.name === 'loading' || !selected || !storeProductId(selected, platform)}
           className={MEMBERSHIP_CTA_CLASS}
         >
           {buttonLabel()}
@@ -243,19 +266,26 @@ async function readError(res: Response): Promise<string> {
 export function MembershipIapUnavailable({
   reason,
 }: {
-  /** outdated: 인앱결제 브리지가 없는 예전 앱 빌드 · unlisted: 상품이 연결되지 않은 회원권 */
-  reason: 'outdated' | 'unlisted';
+  /**
+   * - `outdated`: 인앱결제 브리지가 없는 예전 **iOS** 앱 빌드
+   * - `unlisted`: 상품이 연결되지 않은 회원권
+   * - `preparing`: 그 플랫폼의 인앱결제를 아직 붙이지 않았다 (안드로이드 = Google Play Billing)
+   *
+   * ⚠️ 어떤 경우에도 **외부 결제로 유도하는 문구를 넣으면 안 된다.**
+   * 앱 안에서 웹 결제를 안내하는 것 자체가 App Store 3.1.1 · Play 4.1 위반(안티스티어링)이다.
+   */
+  reason: 'outdated' | 'unlisted' | 'preparing';
 }) {
+  const title = reason === 'outdated' ? '앱 업데이트가 필요해요' : '지금은 구매할 수 없어요';
+  const description =
+    reason === 'outdated'
+      ? 'App Store에서 Picky를 최신 버전으로 업데이트한 뒤 다시 시도해 주세요.'
+      : '회원권을 준비하고 있어요. 조금만 기다려 주세요.';
+
   return (
     <div className="flex flex-1 flex-col items-center justify-center text-center">
-      <p className="text-[16px] font-medium leading-none">
-        {reason === 'outdated' ? '앱 업데이트가 필요해요' : '지금은 구매할 수 없어요'}
-      </p>
-      <p className="mt-4 text-[14px] leading-[1.6] text-night-sub">
-        {reason === 'outdated'
-          ? 'App Store에서 Picky를 최신 버전으로 업데이트한 뒤 다시 시도해 주세요.'
-          : '회원권을 준비하고 있어요. 조금만 기다려 주세요.'}
-      </p>
+      <p className="text-[16px] font-medium leading-none">{title}</p>
+      <p className="mt-4 text-[14px] leading-[1.6] text-night-sub">{description}</p>
     </div>
   );
 }

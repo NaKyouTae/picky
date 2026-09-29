@@ -449,6 +449,16 @@ model MembershipPlan {
   /// 감춘다 — 상품이 없으면 살 수 없기 때문이다. 웹(토스) 결제는 이 값과 무관하게 동작한다.
   appleProductId String? @unique @map("apple_product_id") @db.VarChar(120)
 
+  /// Google Play Console 에 등록한 인앱 상품 ID (소모성 일회성 상품).
+  ///
+  /// 안드로이드 앱은 이 값으로 Play 에서 상품을 찾는다. 비어 있으면 앱 결제 화면에서 이
+  /// 회원권을 감춘다. **Apple 과 같은 문자열을 써도 되지만 같을 필요는 없다** — 스토어마다
+  /// 따로 등록하므로 별도 컬럼으로 둔다.
+  ///
+  /// 소모성(consumable)인 이유: 기간제를 반복 구매해 이어 붙이는 판매 방식이라, 소비하지
+  /// 않으면 같은 상품을 다시 살 수 없다. (Apple 쪽 비갱신 구독과 같은 자리)
+  googleProductId String? @unique @map("google_product_id") @db.VarChar(120)
+
   /// 판매 여부 — false 면 앱 결제 화면에서 감춘다.
   /// 이미 판매한 회원권의 남은 기간에는 영향이 없다 (기간은 구매 기록이 들고 있다).
   isActive Boolean @default(true) @map("is_active")
@@ -476,6 +486,8 @@ enum MembershipStore {
   WEB
   /// iOS 앱 — App Store 인앱결제
   APPLE
+  /// 안드로이드 앱 — Google Play 인앱결제
+  GOOGLE
 }
 
 /// 회원권 결제 상태.
@@ -532,6 +544,17 @@ model MembershipOrder {
   /// 같은 상품 계열의 첫 거래 ID (`originalTransactionId`).
   /// 환불·고객 문의를 Apple 에 조회할 때 기준이 되는 값이라 함께 남긴다.
   appleOriginalTransactionId String? @map("apple_original_transaction_id") @db.VarChar(64)
+
+  /// Google Play 구매 토큰 — GOOGLE 주문에만 있다.
+  ///
+  /// **`appleTransactionId` 와 같은 역할의 멱등 키다.** 구매 한 건마다 유일하고, 앱이
+  /// 영수증을 두 번 보내거나(재시도·복원) 네트워크가 끊겨 다시 보내도 이 unique 제약이
+  /// 중복 적립을 막는다. Play 토큰은 수백 자에 이르므로 길이를 넉넉히 잡는다.
+  googlePurchaseToken String? @unique @map("google_purchase_token") @db.VarChar(1000)
+
+  /// Play 주문번호 (`GPA.0000-0000-0000-00000`).
+  /// 환불·고객 문의를 Play Console 에서 조회할 때 기준이 되는 값이라 함께 남긴다.
+  googleOrderId String? @map("google_order_id") @db.VarChar(64)
 
   /// 토스 결제 식별자 — 승인 후에 생긴다 (WEB 주문 전용)
   paymentKey String?   @unique @map("payment_key") @db.VarChar(200)
@@ -715,11 +738,11 @@ model Inquiry {
 model InquiryImage {
   id String @id @default(uuid()) @db.Uuid
 
-  inquiryId String @map("inquiry_id") @db.Uuid
+  inquiryId    String @map("inquiry_id") @db.Uuid
   /// Storage 경로
-  imagePath String @map("image_path") @db.VarChar(500)
+  imagePath    String @map("image_path") @db.VarChar(500)
   /// 올린 순서 (0..2) — 어드민에서 보이는 순서를 고정한다
-  displayOrder Int @map("display_order")
+  displayOrder Int    @map("display_order")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

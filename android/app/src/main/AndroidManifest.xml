@@ -2,6 +2,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 콜라주를 갤러리에 담을 때만 쓴다. Android 10(API 29)부터는 MediaStore 에 자기가 만든
+         항목을 넣는 데 권한이 필요 없으므로 9 이하로 제한한다 (ImageSaver.kt). -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
     <!-- 챌린지 인증 사진 (Phase 2 에서 실제로 쓴다) -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
@@ -15,6 +20,10 @@
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="market" />
+        </intent>
+        <!-- 인증 사진 촬영 — 이게 없으면 카메라 앱이 깔려 있어도 못 찾는다 -->
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
         </intent>
     </queries>
 
@@ -47,5 +56,18 @@
                 <data android:scheme="picky" />
             </intent-filter>
         </activity>
+
+        <!-- 촬영본을 카메라 앱에 넘길 때 쓰는 content:// 주소.
+             API 24+ 는 file:// 을 앱 밖으로 넘기면 FileUriExposedException 으로 죽는다.
+             경로는 res/xml/file_paths.xml. (FileChooser.kt) -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 </manifest>

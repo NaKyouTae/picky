@@ -22,7 +22,24 @@ export type MembershipPlan = {
    * iOS 앱은 이 값으로 StoreKit 상품을 찾는다 — 비어 있으면 앱에서 팔 수 없다.
    */
   appleProductId: string | null;
+  /**
+   * Google Play 인앱 상품 ID (소모성).
+   * 안드로이드 앱은 이 값으로 Play 상품을 찾는다 — 비어 있으면 앱에서 팔 수 없다.
+   */
+  googleProductId: string | null;
 };
+
+/**
+ * 이 플랫폼의 앱에서 이 회원권을 팔 수 있는 상품 ID.
+ *
+ * 스토어마다 상품을 따로 등록하므로 값이 다를 수 있다. 없으면 그 플랫폼에서는 팔 수 없다.
+ */
+export function storeProductId(
+  plan: MembershipPlan,
+  platform: 'ios' | 'android',
+): string | null {
+  return platform === 'android' ? plan.googleProductId : plan.appleProductId;
+}
 
 export type MembershipOrderStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
 

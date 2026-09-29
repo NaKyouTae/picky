@@ -3,14 +3,18 @@
 import { useSyncExternalStore } from 'react';
 
 /**
- * iOS 네이티브 앱(WKWebView) 안에서 열렸는지, 그리고 네이티브에만 있는 기능을 부른다.
+ * 네이티브 앱 안에서 열렸는지, 그리고 네이티브에만 있는 기능을 부른다.
  *
- * 앱은 WKWebView 에 메시지 핸들러를 심어 두므로(ios/Picky/Picky/WebView.swift)
- * 그 존재로 앱 여부를 가른다. 일반 모바일 브라우저에서는 전부 false / no-op 이다.
+ * iOS 는 WKWebView 에 메시지 핸들러를 심고(ios/Picky/Picky/WebView.swift),
+ * 안드로이드는 문서가 뜨기 전에 **같은 모양의 shim** 을 심는다
+ * (android/app/src/main/java/kr/spectrify/picky/NativeBridge.kt).
+ * 그래서 이 파일은 양쪽에 그대로 쓰인다. 일반 모바일 브라우저에서는 전부 false / no-op 이다.
  */
 
 type NativeBridgeWindow = Window & {
   webkit?: { messageHandlers?: Record<string, { postMessage(body: unknown): void }> };
+  /** 안드로이드 앱이 문서보다 먼저 심는 표식 (android/…/NativeBridge.kt 의 SHIM) */
+  PickyNative?: { platform?: string };
 };
 
 function handlers() {
@@ -30,6 +34,29 @@ const getServerSnapshot = () => false;
 /** 네이티브 앱 여부 훅. */
 export function useIsNativeApp(): boolean {
   return useSyncExternalStore(subscribe, isNativeApp, getServerSnapshot);
+}
+
+/** 어느 앱 안인지. 브라우저면 null. */
+export type NativePlatform = 'ios' | 'android';
+
+/**
+ * 앱의 플랫폼.
+ *
+ * **결제처럼 스토어 규칙이 갈리는 화면은 `isNativeApp()` 만으로 판단하면 안 된다.**
+ * 안드로이드는 Google Play Billing, iOS 는 StoreKit 이라 상품·영수증·서버 엔드포인트가
+ * 전부 다르다. 안드로이드 앱에 iOS 문구("App Store에서 업데이트")가 뜨는 것도 이 구분이
+ * 없어서 생기는 일이다.
+ *
+ * 안드로이드만 표식을 심는다 — iOS 앱은 기존 빌드가 그대로 돌아야 하므로 기본값이 iOS 다.
+ */
+export function nativePlatform(): NativePlatform | null {
+  if (!isNativeApp()) return null;
+  return (window as NativeBridgeWindow).PickyNative?.platform === 'android' ? 'android' : 'ios';
+}
+
+/** 앱 플랫폼 훅. 브라우저·서버에서는 null. */
+export function useNativePlatform(): NativePlatform | null {
+  return useSyncExternalStore(subscribe, nativePlatform, () => null);
 }
 
 /** 네이티브 저장 결과 — WebView.swift 가 같은 이름의 이벤트로 돌려준다. */
@@ -111,11 +138,23 @@ export type IapFailureReason =
   | 'failed';
 
 export type IapPurchaseResult =
-  | { ok: true; transactionId: string; signedTransactionInfo: string }
+  | ({ ok: true } & IapReceipt)
   | { ok: false; reason: IapFailureReason };
 
-/** 결제는 끝났지만 아직 서버에 적립되지 않은 영수증 */
-export type IapReceipt = { transactionId: string; signedTransactionInfo: string };
+/**
+ * 결제는 끝났지만 아직 서버에 적립되지 않은 영수증.
+ *
+ * 두 스토어가 같은 모양을 쓴다 — 담기는 값만 다르다.
+ * - iOS: `transactionId` = StoreKit 거래 ID, `signedTransactionInfo` = 서명 영수증(JWS)
+ * - 안드로이드: 둘 다 Play 구매 토큰. 서버가 그 토큰으로 구글에 직접 조회한다.
+ *
+ * `productId` 는 안드로이드에서 필수다 — Play 조회에 상품 ID 가 함께 필요하다.
+ */
+export type IapReceipt = {
+  transactionId: string;
+  signedTransactionInfo: string;
+  productId?: string;
+};
 
 /**
  * 인앱결제를 쓸 수 있는지.
@@ -172,10 +211,14 @@ export async function restoreIapReceipts(): Promise<IapReceipt[]> {
 }
 
 /**
- * 적립이 끝난 거래를 닫는다.
+ * 적립이 끝난 거래를 닫는다 (**iOS 전용**).
  *
  * **서버 적립에 성공한 뒤에만 부른다.** 먼저 닫으면 적립이 실패했을 때 영수증을 다시 얻을
  * 방법이 없어진다. 닫기 전까지 StoreKit 이 거래를 들고 있어 주므로 재시도가 가능하다.
+ *
+ * 안드로이드에서는 부르지 않는다 — Play 는 3일 안에 확인하지 않은 구매를 자동 환불하므로,
+ * 앱이 꺼져도 확실하도록 **서버가 적립 직후에 직접 소비(consume)한다**
+ * (server/src/memberships/google-iap.service.ts).
  */
 export async function finishIapTransaction(transactionId: string): Promise<void> {
   await callIap<{ ok: boolean }>({ action: 'finish', transactionId }, PRODUCTS_TIMEOUT_MS);
