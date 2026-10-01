@@ -116,7 +116,24 @@ export function ChallengesTable({ categories }: { categories: AdminChallengeCate
 
   return (
     <div>
-      <div className="flex flex-wrap items-center gap-2">
+      {/* 카테고리 — 세 개로 고정이라 드롭다운 대신 눌러서 바로 거르는 라벨로 둔다 */}
+      <div className="flex flex-wrap gap-2" role="group" aria-label="카테고리 필터">
+        <CategoryChip
+          label="전체"
+          active={filters.categoryId === ''}
+          onClick={() => applyFilters({ ...filters, categoryId: '' })}
+        />
+        {categories.map((category) => (
+          <CategoryChip
+            key={category.id}
+            label={`${category.emoji ? `${category.emoji} ` : ''}${category.name}`}
+            active={filters.categoryId === category.id}
+            onClick={() => applyFilters({ ...filters, categoryId: category.id })}
+          />
+        ))}
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
         <form
           onSubmit={(event) => {
             event.preventDefault();
@@ -139,21 +156,6 @@ export function ChallengesTable({ categories }: { categories: AdminChallengeCate
             검색
           </button>
         </form>
-
-        <select
-          value={filters.categoryId}
-          onChange={(event) => applyFilters({ ...filters, categoryId: event.target.value })}
-          aria-label="카테고리 필터"
-          className="h-11 min-w-0 flex-1 rounded-lg border border-line bg-white px-3 text-sm outline-none focus:border-brand-500 sm:h-10 sm:flex-none"
-        >
-          <option value="">전체 카테고리</option>
-          {categories.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.emoji ? `${category.emoji} ` : ''}
-              {category.name}
-            </option>
-          ))}
-        </select>
 
         <select
           value={filters.status}
@@ -352,5 +354,31 @@ export function ChallengesTable({ categories }: { categories: AdminChallengeCate
         />
       </Modal>
     </div>
+  );
+}
+
+/** 카테고리 필터 라벨 하나 — 누르면 그 카테고리만 남는다 */
+function CategoryChip({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`h-10 rounded-full border px-4 text-sm font-medium sm:h-9 ${
+        active
+          ? 'border-brand-500 bg-brand-500 text-white'
+          : 'border-line bg-white text-ink-sub hover:bg-gray-100'
+      }`}
+    >
+      {label}
+    </button>
   );
 }
