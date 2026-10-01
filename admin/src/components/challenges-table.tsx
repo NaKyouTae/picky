@@ -43,6 +43,9 @@ export function ChallengesTable({ categories }: { categories: AdminChallengeCate
   const [reloadToken, setReloadToken] = useState(0);
   /** null = 닫힘, 'new' = 등록, 그 외 = 수정 대상 */
   const [editing, setEditing] = useState<AdminChallenge | 'new' | null>(null);
+  /** 삭제 중인 챌린지 id — 그 행의 버튼만 잠근다 */
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const cursor = cursors[cursors.length - 1];
   const key = JSON.stringify([filters, cursor, reloadToken]);
@@ -84,17 +87,41 @@ export function ChallengesTable({ categories }: { categories: AdminChallengeCate
   function applyFilters(next: Filters) {
     setCursors([null]);
     setFilters(next);
+    setDeleteError(null);
   }
 
   /**
-   * 모달에서 저장·삭제를 마친 뒤.
+   * 모달에서 저장을 마친 뒤.
    * 수정은 보고 있던 페이지를 그대로 다시 불러오고,
-   * 등록(최신순 맨 앞에 온다)과 삭제(지우던 행이 마지막이면 빈 페이지가 남는다)는 첫 페이지로 돌아간다.
+   * 등록은 최신순 목록의 맨 앞에 오므로 첫 페이지로 돌아간다.
    */
-  function handleDone(result: 'created' | 'updated' | 'deleted') {
+  function handleDone(result: 'created' | 'updated') {
     setEditing(null);
-    if (result !== 'updated') setCursors([null]);
+    if (result === 'created') setCursors([null]);
     setReloadToken((token) => token + 1);
+  }
+
+  /**
+   * 목록에서 바로 삭제.
+   * 그룹에 담겨 진행된 챌린지는 서버가 막으므로(FK Restrict) 그 메시지를 그대로 보여준다.
+   */
+  async function handleDelete(challenge: AdminChallenge) {
+    if (!window.confirm(`'${challenge.title}' 을 삭제할까요? 되돌릴 수 없습니다.`)) return;
+
+    setDeletingId(challenge.id);
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/admin/challenges/${challenge.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(await readError(res));
+
+      // 지운 행이 그 페이지의 마지막이면 빈 페이지가 남으므로 첫 페이지로 돌아간다.
+      setCursors([null]);
+      setReloadToken((token) => token + 1);
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : '삭제에 실패했습니다.');
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   const page = loading ? null : (loaded?.page ?? null);
@@ -195,6 +222,8 @@ export function ChallengesTable({ categories }: { categories: AdminChallengeCate
         </button>
       </div>
 
+      {deleteError && <p className="mt-3 text-sm text-brand-600">{deleteError}</p>}
+
       {/* 모바일 — 표 대신 카드. 카드를 통째로 눌러 수정 모달을 연다 */}
       <div className="mt-4 space-y-2 lg:hidden">
         {message ? (
@@ -207,29 +236,39 @@ export function ChallengesTable({ categories }: { categories: AdminChallengeCate
           </p>
         ) : (
           items.map((challenge) => (
-            <button
-              key={challenge.id}
-              type="button"
-              onClick={() => setEditing(challenge)}
-              className="block w-full rounded-xl border border-line bg-white p-4 text-left active:bg-gray-50"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-xs text-ink-sub">
-                    {challenge.category.emoji} {challenge.category.name}
-                  </p>
-                  <p className="mt-0.5 font-medium">{challenge.title}</p>
+            <div key={challenge.id} className="rounded-xl border border-line bg-white p-4">
+              {/* 카드 본문을 눌러 수정 모달을 연다 — 삭제는 아래 따로 둔다(버튼 중첩 금지) */}
+              <button
+                type="button"
+                onClick={() => setEditing(challenge)}
+                className="block w-full text-left"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-xs text-ink-sub">
+                      {challenge.category.emoji} {challenge.category.name}
+                    </p>
+                    <p className="mt-0.5 font-medium">{challenge.title}</p>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${CHALLENGE_STATUS_STYLES[challenge.status]}`}
+                  >
+                    {CHALLENGE_STATUS_LABELS[challenge.status]}
+                  </span>
                 </div>
-                <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${CHALLENGE_STATUS_STYLES[challenge.status]}`}
+              </button>
+              <div className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-2 text-xs text-ink-sub">
+                <span>{formatDateTime(challenge.createdAt)}</span>
+                <button
+                  type="button"
+                  onClick={() => void handleDelete(challenge)}
+                  disabled={deletingId === challenge.id}
+                  className="-my-1 h-9 rounded-lg px-2 text-sm font-medium text-brand-600 active:bg-brand-500/5 disabled:opacity-60"
                 >
-                  {CHALLENGE_STATUS_LABELS[challenge.status]}
-                </span>
+                  {deletingId === challenge.id ? '삭제 중' : '삭제'}
+                </button>
               </div>
-              <div className="mt-3 border-t border-line pt-2 text-right text-xs text-ink-sub">
-                {formatDateTime(challenge.createdAt)}
-              </div>
-            </button>
+            </div>
           ))
         )}
       </div>
@@ -303,13 +342,23 @@ export function ChallengesTable({ categories }: { categories: AdminChallengeCate
                   </td>
                   <td className="px-4 py-3 text-ink-sub">{formatDateTime(challenge.createdAt)}</td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      type="button"
-                      onClick={() => setEditing(challenge)}
-                      className="text-sm font-medium text-brand-600 hover:underline"
-                    >
-                      수정
-                    </button>
+                    <div className="flex items-center justify-end gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setEditing(challenge)}
+                        className="text-sm font-medium text-brand-600 hover:underline"
+                      >
+                        수정
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleDelete(challenge)}
+                        disabled={deletingId === challenge.id}
+                        className="text-sm font-medium text-ink-sub hover:text-brand-600 hover:underline disabled:opacity-60"
+                      >
+                        {deletingId === challenge.id ? '삭제 중' : '삭제'}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -355,6 +404,14 @@ export function ChallengesTable({ categories }: { categories: AdminChallengeCate
       </Modal>
     </div>
   );
+}
+
+/** NestJS 예외 필터가 내려주는 message 를 꺼내고, 형식이 다르면 상태 코드로 대체한다 */
+async function readError(res: Response): Promise<string> {
+  const body = (await res.json().catch(() => null)) as { message?: string | string[] } | null;
+  const message = body?.message;
+  if (Array.isArray(message)) return message.join('\n');
+  return message ?? `요청이 실패했습니다 (${res.status})`;
 }
 
 /** 카테고리 필터 라벨 하나 — 누르면 그 카테고리만 남는다 */

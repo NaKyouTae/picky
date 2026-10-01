@@ -33,10 +33,10 @@ const FIELD =
 
 /**
  * 챌린지 등록/수정 폼 — 목록 화면의 모달 안에서만 쓴다.
- * challenge 가 있으면 수정 모드(PATCH + 삭제 버튼), 없으면 등록 모드(POST).
+ * challenge 가 있으면 수정 모드(PATCH), 없으면 등록 모드(POST). 삭제는 목록에서 한다.
  *
  * 저장/취소 후 모달을 닫고 목록을 갱신하는 일은 호출하는 쪽(onDone/onCancel)이 한다 —
- * 등록·수정·삭제에 따라 돌아갈 페이지가 다르므로 무엇을 했는지 함께 알려 준다.
+ * 등록과 수정은 돌아갈 페이지가 다르므로 무엇을 했는지 함께 알려 준다.
  */
 export function ChallengeForm({
   challenge,
@@ -47,13 +47,13 @@ export function ChallengeForm({
   challenge?: AdminChallenge;
   /** 어드민에 등록된 카테고리 — 선택 목록을 여기서 그린다 */
   categories: AdminChallengeCategory[];
-  onDone: (result: 'created' | 'updated' | 'deleted') => void;
+  onDone: (result: 'created' | 'updated') => void;
   onCancel: () => void;
 }) {
   const [values, setValues] = useState<FormValues>(() =>
     toFormValues(challenge, categories[0]?.id ?? ''),
   );
-  const [pending, setPending] = useState<'save' | 'delete' | null>(null);
+  const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const editing = Boolean(challenge);
@@ -64,7 +64,7 @@ export function ChallengeForm({
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    setPending('save');
+    setPending(true);
     setError(null);
 
     const body = {
@@ -87,24 +87,7 @@ export function ChallengeForm({
       onDone(editing ? 'updated' : 'created');
     } catch (e) {
       setError(e instanceof Error ? e.message : '저장에 실패했습니다.');
-      setPending(null);
-    }
-  }
-
-  async function handleDelete() {
-    if (!challenge) return;
-    if (!window.confirm('이 챌린지를 삭제할까요? 되돌릴 수 없습니다.')) return;
-
-    setPending('delete');
-    setError(null);
-    try {
-      const res = await fetch(`/api/admin/challenges/${challenge.id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error(await readError(res));
-
-      onDone('deleted');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '삭제에 실패했습니다.');
-      setPending(null);
+      setPending(false);
     }
   }
 
@@ -173,29 +156,19 @@ export function ChallengeForm({
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="submit"
-          disabled={pending !== null}
+          disabled={pending}
           className="h-11 rounded-lg bg-brand-500 px-5 sm:h-10 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
         >
-          {pending === 'save' ? '저장 중' : editing ? '수정' : '등록'}
+          {pending ? '저장 중' : editing ? '수정' : '등록'}
         </button>
         <button
           type="button"
           onClick={onCancel}
-          disabled={pending !== null}
+          disabled={pending}
           className="h-11 rounded-lg border border-line bg-white px-5 sm:h-10 text-sm text-ink-sub hover:bg-gray-100 disabled:opacity-60"
         >
           취소
         </button>
-        {editing && (
-          <button
-            type="button"
-            onClick={() => void handleDelete()}
-            disabled={pending !== null}
-            className="ml-auto h-11 rounded-lg border border-line bg-white px-5 sm:h-10 text-sm text-brand-600 hover:bg-brand-500/5 disabled:opacity-60"
-          >
-            {pending === 'delete' ? '삭제 중' : '삭제'}
-          </button>
-        )}
       </div>
     </form>
   );
