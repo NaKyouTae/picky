@@ -10,12 +10,10 @@ export type ChallengeCategory = {
   challengeCount: number;
 };
 
+/** 챌린지가 갖는 내용은 제목 한 줄뿐이다 */
 export type Challenge = {
   id: string;
   title: string;
-  description: string | null;
-  duration: string | null;
-  emoji: string | null;
 };
 
 /**

@@ -51,9 +51,7 @@ const GROUP_FIELDS = {
       // 경로만 내려준다 — 읽기용 URL 은 필요할 때 signed URL 로 따로 발급한다.
       proofImagePath: true,
       createdAt: true,
-      challenge: {
-        select: { id: true, title: true, description: true, duration: true, emoji: true },
-      },
+      challenge: { select: { id: true, title: true } },
     },
   },
 } as const;

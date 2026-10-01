@@ -38,9 +38,6 @@ export type AdminChallenge = {
   category: { id: string; name: string; emoji: string | null };
   status: ChallengeStatus;
   title: string;
-  description: string | null;
-  duration: string | null;
-  emoji: string | null;
   /** JSON 직렬화를 거치므로 ISO 문자열로 도착한다 */
   createdAt: string;
   updatedAt: string;

@@ -203,13 +203,8 @@ model Challenge {
   status     ChallengeStatus @default(DRAFT)
 
   /// 카드에 크게 보이는 한 줄 (예: "서로 좋아하는 영화 바꿔 시청하기")
-  title       String  @db.VarChar(120)
-  /// 상세 설명 — 어떻게 진행하는지
-  description String? @db.Text
-  /// 소요 시간 안내 (예: "2시간", "하루") — 자유 문구
-  duration    String? @db.VarChar(40)
-  /// 카드 상단 이모지 (예: "🎬")
-  emoji       String? @db.VarChar(8)
+  /// 챌린지가 갖는 내용은 이 한 줄뿐이다 — 설명·소요 시간·이모지는 쓰지 않는다.
+  title String @db.VarChar(120)
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

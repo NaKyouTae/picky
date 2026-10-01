@@ -14,9 +14,6 @@ export interface AdminChallengeRow {
   category: { id: string; name: string; emoji: string | null };
   status: ChallengeStatus;
   title: string;
-  description: string | null;
-  duration: string | null;
-  emoji: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -35,9 +32,6 @@ const CHALLENGE_SELECT = {
   category: { select: { id: true, name: true, emoji: true } },
   status: true,
   title: true,
-  description: true,
-  duration: true,
-  emoji: true,
   createdAt: true,
   updatedAt: true,
 } as const;

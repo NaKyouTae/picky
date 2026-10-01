@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ChallengeForm } from '@/components/challenge-form';
 import { Modal } from '@/components/modal';
@@ -9,6 +8,7 @@ import {
   CHALLENGE_STATUS_LABELS,
   CHALLENGE_STATUS_STYLES,
   STATUSES,
+  type AdminChallenge,
   type AdminChallengeCategory,
   type AdminChallengePage,
   type ChallengeStatus,
@@ -39,9 +39,10 @@ export function ChallengesTable({ categories }: { categories: AdminChallengeCate
   /** 지나온 페이지의 커서 — 첫 페이지는 커서가 없으므로 null */
   const [cursors, setCursors] = useState<(string | null)[]>([null]);
   const [loaded, setLoaded] = useState<LoadedPage | null>(null);
-  /** 등록 모달에서 저장한 뒤 같은 조건을 다시 불러오기 위한 값 */
+  /** 모달에서 저장한 뒤 같은 조건을 다시 불러오기 위한 값 */
   const [reloadToken, setReloadToken] = useState(0);
-  const [creating, setCreating] = useState(false);
+  /** null = 닫힘, 'new' = 등록, 그 외 = 수정 대상 */
+  const [editing, setEditing] = useState<AdminChallenge | 'new' | null>(null);
 
   const cursor = cursors[cursors.length - 1];
   const key = JSON.stringify([filters, cursor, reloadToken]);
@@ -85,6 +86,17 @@ export function ChallengesTable({ categories }: { categories: AdminChallengeCate
     setFilters(next);
   }
 
+  /**
+   * 모달에서 저장·삭제를 마친 뒤.
+   * 수정은 보고 있던 페이지를 그대로 다시 불러오고,
+   * 등록(최신순 맨 앞에 온다)과 삭제(지우던 행이 마지막이면 빈 페이지가 남는다)는 첫 페이지로 돌아간다.
+   */
+  function handleDone(result: 'created' | 'updated' | 'deleted') {
+    setEditing(null);
+    if (result !== 'updated') setCursors([null]);
+    setReloadToken((token) => token + 1);
+  }
+
   const page = loading ? null : (loaded?.page ?? null);
   const error = loading ? null : (loaded?.error ?? null);
   const items = page?.items ?? [];
@@ -94,7 +106,7 @@ export function ChallengesTable({ categories }: { categories: AdminChallengeCate
   const filtered = Boolean(filters.query || filters.categoryId || filters.status);
   /** 행 대신 보여줄 안내 (없으면 null) — 표와 모바일 카드가 같이 쓴다 */
   const message = loading
-    ? '불러오는 중…'
+    ? '불러오는 중'
     : (error ??
       (items.length === 0
         ? filtered
@@ -174,14 +186,14 @@ export function ChallengesTable({ categories }: { categories: AdminChallengeCate
 
         <button
           type="button"
-          onClick={() => setCreating(true)}
+          onClick={() => setEditing('new')}
           className="h-11 w-full rounded-lg bg-ink px-4 text-sm font-semibold text-white hover:opacity-90 sm:ml-auto sm:h-10 sm:w-auto"
         >
           챌린지 등록
         </button>
       </div>
 
-      {/* 모바일 — 표 대신 카드. 카드를 통째로 눌러 수정 화면으로 들어간다 */}
+      {/* 모바일 — 표 대신 카드. 카드를 통째로 눌러 수정 모달을 연다 */}
       <div className="mt-4 space-y-2 lg:hidden">
         {message ? (
           <p
@@ -193,20 +205,18 @@ export function ChallengesTable({ categories }: { categories: AdminChallengeCate
           </p>
         ) : (
           items.map((challenge) => (
-            <Link
+            <button
               key={challenge.id}
-              href={`/challenges/${challenge.id}`}
-              className="block rounded-xl border border-line bg-white p-4 active:bg-gray-50"
+              type="button"
+              onClick={() => setEditing(challenge)}
+              className="block w-full rounded-xl border border-line bg-white p-4 text-left active:bg-gray-50"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="truncate text-xs text-ink-sub">
                     {challenge.category.emoji} {challenge.category.name}
                   </p>
-                  <p className="mt-0.5 font-medium">
-                    {challenge.emoji ? `${challenge.emoji} ` : ''}
-                    {challenge.title}
-                  </p>
+                  <p className="mt-0.5 font-medium">{challenge.title}</p>
                 </div>
                 <span
                   className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${CHALLENGE_STATUS_STYLES[challenge.status]}`}
@@ -214,11 +224,10 @@ export function ChallengesTable({ categories }: { categories: AdminChallengeCate
                   {CHALLENGE_STATUS_LABELS[challenge.status]}
                 </span>
               </div>
-              <div className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-2 text-xs text-ink-sub">
-                <span>소요 시간 {challenge.duration ?? '-'}</span>
-                <span>{formatDateTime(challenge.createdAt)}</span>
+              <div className="mt-3 border-t border-line pt-2 text-right text-xs text-ink-sub">
+                {formatDateTime(challenge.createdAt)}
               </div>
-            </Link>
+            </button>
           ))
         )}
       </div>
@@ -234,21 +243,19 @@ export function ChallengesTable({ categories }: { categories: AdminChallengeCate
                 제목
               </th>
               <th scope="col" className="px-4 py-3 font-medium">
-                소요 시간
-              </th>
-              <th scope="col" className="px-4 py-3 font-medium">
                 상태
               </th>
               <th scope="col" className="px-4 py-3 font-medium">
                 등록일
               </th>
+              <th scope="col" className="px-4 py-3" />
             </tr>
           </thead>
           <tbody>
             {loading && (
               <tr>
                 <td colSpan={COLUMN_COUNT} className="px-4 py-10 text-center text-ink-sub">
-                  불러오는 중…
+                  불러오는 중
                 </td>
               </tr>
             )}
@@ -277,15 +284,14 @@ export function ChallengesTable({ categories }: { categories: AdminChallengeCate
                     {challenge.category.emoji} {challenge.category.name}
                   </td>
                   <td className="px-4 py-3">
-                    <Link
-                      href={`/challenges/${challenge.id}`}
-                      className="font-medium hover:text-brand-600 hover:underline"
+                    <button
+                      type="button"
+                      onClick={() => setEditing(challenge)}
+                      className="text-left font-medium hover:text-brand-600 hover:underline"
                     >
-                      {challenge.emoji ? `${challenge.emoji} ` : ''}
                       {challenge.title}
-                    </Link>
+                    </button>
                   </td>
-                  <td className="px-4 py-3 text-ink-sub">{challenge.duration ?? '-'}</td>
                   <td className="px-4 py-3">
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs font-medium ${CHALLENGE_STATUS_STYLES[challenge.status]}`}
@@ -294,6 +300,15 @@ export function ChallengesTable({ categories }: { categories: AdminChallengeCate
                     </span>
                   </td>
                   <td className="px-4 py-3 text-ink-sub">{formatDateTime(challenge.createdAt)}</td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      type="button"
+                      onClick={() => setEditing(challenge)}
+                      className="text-sm font-medium text-brand-600 hover:underline"
+                    >
+                      수정
+                    </button>
+                  </td>
                 </tr>
               ))}
           </tbody>
@@ -322,17 +337,18 @@ export function ChallengesTable({ categories }: { categories: AdminChallengeCate
         </div>
       </div>
 
-      <Modal open={creating} onClose={() => setCreating(false)} title="챌린지 등록">
+      <Modal
+        open={editing !== null}
+        onClose={() => setEditing(null)}
+        title={editing === 'new' ? '챌린지 등록' : '챌린지 수정'}
+      >
         <ChallengeForm
+          // 수정 대상이 바뀌면 폼을 새로 만든다 — 모달을 닫지 않고 다른 행을 열어도 값이 남지 않는다.
+          key={editing === 'new' || editing === null ? 'new' : editing.id}
+          challenge={editing === 'new' || editing === null ? undefined : editing}
           categories={categories}
-          framed={false}
-          onDone={() => {
-            setCreating(false);
-            // 새 챌린지는 최신순 목록의 맨 앞에 오므로 첫 페이지로 돌아가 다시 불러온다.
-            setCursors([null]);
-            setReloadToken((token) => token + 1);
-          }}
-          onCancel={() => setCreating(false)}
+          onDone={handleDone}
+          onCancel={() => setEditing(null)}
         />
       </Modal>
     </div>

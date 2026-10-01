@@ -44,7 +44,7 @@ type Menu = { readonly href: string; readonly label: string };
 /** 모바일 상단바에 현재 화면 이름을 띄우려고 묶음을 평탄하게 편 목록 */
 const MENUS: Menu[] = MENU_GROUPS.flatMap((group) => [...group.items]);
 
-/** 하위 경로(/challenges/new, /challenges/:id)에서도 메뉴가 활성으로 보이도록 */
+/** 메뉴 경로로 시작하는 하위 경로까지 활성으로 본다 — 상세 화면이 생겨도 메뉴가 꺼지지 않게 */
 function isActive(href: string, pathname: string) {
   return href === '/' ? pathname === '/' : pathname.startsWith(href);
 }

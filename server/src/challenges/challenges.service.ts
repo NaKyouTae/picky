@@ -8,9 +8,6 @@ export interface PublicChallenge {
   id: string;
   categoryId: string;
   title: string;
-  description: string | null;
-  duration: string | null;
-  emoji: string | null;
 }
 
 /** 앱 메인 화면에 나열되는 카테고리 */
@@ -27,9 +24,6 @@ const PUBLIC_SELECT = {
   id: true,
   categoryId: true,
   title: true,
-  description: true,
-  duration: true,
-  emoji: true,
 } as const;
 
 @Injectable()

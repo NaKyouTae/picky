@@ -1,6 +1,5 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import {
   CHALLENGE_STATUS_LABELS,
@@ -10,13 +9,11 @@ import {
   type ChallengeStatus,
 } from '@/lib/challenges';
 
+/** 챌린지가 갖는 값은 이 셋뿐이다 — 설명·소요 시간·이모지는 두지 않는다 */
 type FormValues = {
   categoryId: string;
   status: ChallengeStatus;
   title: string;
-  description: string;
-  duration: string;
-  emoji: string;
 };
 
 function toFormValues(
@@ -27,9 +24,6 @@ function toFormValues(
     categoryId: challenge?.categoryId ?? fallbackCategoryId,
     status: challenge?.status ?? 'PUBLISHED',
     title: challenge?.title ?? '',
-    description: challenge?.description ?? '',
-    duration: challenge?.duration ?? '',
-    emoji: challenge?.emoji ?? '',
   };
 }
 
@@ -38,28 +32,24 @@ const FIELD =
   'mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none focus:border-brand-500';
 
 /**
- * 챌린지 등록/수정 폼.
+ * 챌린지 등록/수정 폼 — 목록 화면의 모달 안에서만 쓴다.
  * challenge 가 있으면 수정 모드(PATCH + 삭제 버튼), 없으면 등록 모드(POST).
  *
- * 저장/취소 후 동작은 호출하는 쪽이 정한다 — 모달에서는 닫고 목록을 갱신하고,
- * 콜백이 없으면(페이지로 쓸 때) 목록 화면으로 이동한다.
+ * 저장/취소 후 모달을 닫고 목록을 갱신하는 일은 호출하는 쪽(onDone/onCancel)이 한다 —
+ * 등록·수정·삭제에 따라 돌아갈 페이지가 다르므로 무엇을 했는지 함께 알려 준다.
  */
 export function ChallengeForm({
   challenge,
   categories,
-  framed = true,
   onDone,
   onCancel,
 }: {
   challenge?: AdminChallenge;
   /** 어드민에 등록된 카테고리 — 선택 목록을 여기서 그린다 */
   categories: AdminChallengeCategory[];
-  /** 카드 테두리 — 모달 안에서는 이미 테두리가 있으므로 false */
-  framed?: boolean;
-  onDone?: () => void;
-  onCancel?: () => void;
+  onDone: (result: 'created' | 'updated' | 'deleted') => void;
+  onCancel: () => void;
 }) {
-  const router = useRouter();
   const [values, setValues] = useState<FormValues>(() =>
     toFormValues(challenge, categories[0]?.id ?? ''),
   );
@@ -72,37 +62,15 @@ export function ChallengeForm({
     setValues((prev) => ({ ...prev, [key]: value }));
   }
 
-  function done() {
-    if (onDone) {
-      onDone();
-      return;
-    }
-    router.push('/challenges');
-    router.refresh();
-  }
-
-  function cancel() {
-    if (onCancel) {
-      onCancel();
-      return;
-    }
-    router.push('/challenges');
-  }
-
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setPending('save');
     setError(null);
 
-    // 빈 문자열은 보내지 않는다 — 서버 DTO 에서 선택 필드는 생략이 곧 "없음" 이다.
     const body = {
       categoryId: values.categoryId,
       status: values.status,
       title: values.title.trim(),
-      // 빈 칸은 null 로 보낸다 — 생략하면 수정에서 "그대로 두기" 가 되어 지워지지 않는다.
-      description: values.description.trim() || null,
-      duration: values.duration.trim() || null,
-      emoji: values.emoji.trim() || null,
     };
 
     try {
@@ -116,7 +84,7 @@ export function ChallengeForm({
       );
       if (!res.ok) throw new Error(await readError(res));
 
-      done();
+      onDone(editing ? 'updated' : 'created');
     } catch (e) {
       setError(e instanceof Error ? e.message : '저장에 실패했습니다.');
       setPending(null);
@@ -133,7 +101,7 @@ export function ChallengeForm({
       const res = await fetch(`/api/admin/challenges/${challenge.id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error(await readError(res));
 
-      done();
+      onDone('deleted');
     } catch (e) {
       setError(e instanceof Error ? e.message : '삭제에 실패했습니다.');
       setPending(null);
@@ -141,12 +109,7 @@ export function ChallengeForm({
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className={
-        framed ? 'max-w-2xl space-y-5 rounded-xl border border-line bg-white p-6' : 'space-y-5'
-      }
-    >
+    <form onSubmit={handleSubmit} className="space-y-5">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label htmlFor="category" className={LABEL}>
@@ -189,63 +152,18 @@ export function ChallengeForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-[4.5rem_1fr] gap-3 sm:grid-cols-[5rem_1fr] sm:gap-4">
-        <div>
-          <label htmlFor="emoji" className={LABEL}>
-            이모지
-          </label>
-          <input
-            id="emoji"
-            value={values.emoji}
-            onChange={(event) => set('emoji', event.target.value)}
-            placeholder="🎬"
-            maxLength={8}
-            className={FIELD}
-          />
-        </div>
-
-        <div>
-          <label htmlFor="title" className={LABEL}>
-            제목
-          </label>
-          <input
-            id="title"
-            value={values.title}
-            onChange={(event) => set('title', event.target.value)}
-            placeholder="서로 좋아하는 영화 바꿔 시청하기"
-            required
-            minLength={2}
-            maxLength={120}
-            className={FIELD}
-          />
-        </div>
-      </div>
-
       <div>
-        <label htmlFor="duration" className={LABEL}>
-          소요 시간
+        <label htmlFor="title" className={LABEL}>
+          제목
         </label>
         <input
-          id="duration"
-          value={values.duration}
-          onChange={(event) => set('duration', event.target.value)}
-          placeholder="2시간"
-          maxLength={40}
-          className={FIELD}
-        />
-      </div>
-
-      <div>
-        <label htmlFor="description" className={LABEL}>
-          설명
-        </label>
-        <textarea
-          id="description"
-          value={values.description}
-          onChange={(event) => set('description', event.target.value)}
-          placeholder="어떻게 진행하는 챌린지인지 알려주세요."
-          rows={5}
-          maxLength={2000}
+          id="title"
+          value={values.title}
+          onChange={(event) => set('title', event.target.value)}
+          placeholder="서로 좋아하는 영화 바꿔 시청하기"
+          required
+          minLength={2}
+          maxLength={120}
           className={FIELD}
         />
       </div>
@@ -258,11 +176,11 @@ export function ChallengeForm({
           disabled={pending !== null}
           className="h-11 rounded-lg bg-brand-500 px-5 sm:h-10 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
         >
-          {pending === 'save' ? '저장 중…' : editing ? '수정' : '등록'}
+          {pending === 'save' ? '저장 중' : editing ? '수정' : '등록'}
         </button>
         <button
           type="button"
-          onClick={cancel}
+          onClick={onCancel}
           disabled={pending !== null}
           className="h-11 rounded-lg border border-line bg-white px-5 sm:h-10 text-sm text-ink-sub hover:bg-gray-100 disabled:opacity-60"
         >
@@ -271,11 +189,11 @@ export function ChallengeForm({
         {editing && (
           <button
             type="button"
-            onClick={handleDelete}
+            onClick={() => void handleDelete()}
             disabled={pending !== null}
             className="ml-auto h-11 rounded-lg border border-line bg-white px-5 sm:h-10 text-sm text-brand-600 hover:bg-brand-500/5 disabled:opacity-60"
           >
-            {pending === 'delete' ? '삭제 중…' : '삭제'}
+            {pending === 'delete' ? '삭제 중' : '삭제'}
           </button>
         )}
       </div>
